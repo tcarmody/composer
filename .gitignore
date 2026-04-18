@@ -1,0 +1,27 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Data
+data/
+*.db
+*.db-journal
+
+# Environment
+.env
+.env.local
+
+# Node
+web/node_modules/
+web/dist/
+web/*.tsbuildinfo
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
