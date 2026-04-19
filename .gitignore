@@ -1,27 +1,48 @@
 # Python
 venv/
+.venv/
+env/
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.pyright/
+.coverage
+htmlcov/
+coverage.xml
 
 # Data
 data/
 *.db
 *.db-journal
+*.sqlite
+*.sqlite3
 
-# Environment
+# Logs
+*.log
+logs/
+
+# Environment (keep .env.example)
 .env
 .env.local
+.env.*.local
 
 # Node
+node_modules/
 web/node_modules/
 web/dist/
+web/dist-ssr/
 web/*.tsbuildinfo
+.eslintcache
 
 # Editor / OS
 .DS_Store
+Thumbs.db
 .vscode/
 .idea/
 *.swp
+*.swo
+.aider*
