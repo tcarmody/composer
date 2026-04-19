@@ -89,6 +89,53 @@ final class APIClient {
         let _: EmptyResponse = try await request("/items/\(id)", method: "DELETE", allow204: true)
     }
 
+    // MARK: - Collections
+
+    func listCollections() async throws -> [Collection] {
+        try await request("/collections")
+    }
+
+    func createCollection(name: String, description: String? = nil) async throws -> Collection {
+        var body: [String: Any] = ["name": name]
+        if let description { body["description"] = description }
+        let data = try JSONSerialization.data(withJSONObject: body)
+        return try await request("/collections", method: "POST", body: data)
+    }
+
+    func getCollection(id: String) async throws -> Outline {
+        try await request("/collections/\(id)")
+    }
+
+    func deleteCollection(id: String) async throws {
+        let _: EmptyResponse = try await request("/collections/\(id)", method: "DELETE", allow204: true)
+    }
+
+    func addCollectionMember(id: String, memberType: MemberType, memberId: String) async throws -> Outline {
+        let body = try JSONSerialization.data(withJSONObject: [
+            "member_type": memberType.rawValue,
+            "member_id": memberId
+        ])
+        return try await request("/collections/\(id)/members", method: "POST", body: body)
+    }
+
+    func removeCollectionMember(id: String, memberType: MemberType, memberId: String) async throws {
+        let path = "/collections/\(id)/members/\(memberType.rawValue)/\(memberId)"
+        let _: EmptyResponse = try await request(path, method: "DELETE", allow204: true)
+    }
+
+    func reorderCollection(id: String, members: [(MemberType, String)]) async throws -> Outline {
+        let serialized = members.map { [$0.0.rawValue, $0.1] }
+        let body = try JSONSerialization.data(withJSONObject: ["members": serialized])
+        return try await request("/collections/\(id)/reorder", method: "POST", body: body)
+    }
+
+    func createInlineNote(collectionId: String, title: String? = nil, body: String) async throws -> Outline {
+        var payload: [String: Any] = ["body": body]
+        if let title { payload["title"] = title }
+        let data = try JSONSerialization.data(withJSONObject: payload)
+        return try await request("/collections/\(collectionId)/notes", method: "POST", body: data)
+    }
+
     // MARK: - Core
 
     private func urlEncode(_ s: String) -> String {

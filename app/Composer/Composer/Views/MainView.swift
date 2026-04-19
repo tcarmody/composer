@@ -10,7 +10,7 @@ struct MainView: View {
                 case .library:
                     LibraryView(api: app.api)
                 case .collections:
-                    CollectionsPlaceholder()
+                    CollectionsView(api: app.api)
                 }
             }
             .toolbar {
@@ -27,16 +27,6 @@ struct MainView: View {
                 }
             }
         }
-    }
-}
-
-private struct CollectionsPlaceholder: View {
-    var body: some View {
-        ContentUnavailableView(
-            "Collections",
-            systemImage: "rectangle.stack",
-            description: Text("Gather items and notes into collections.")
-        )
     }
 }
 
