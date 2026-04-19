@@ -5,6 +5,7 @@ import {
   setItemArchived,
   type Item,
 } from '../lib/api'
+import { AddToCollectionButton } from './AddToCollectionButton'
 
 interface ItemDetailProps {
   itemId: string | null
@@ -74,6 +75,7 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
             {isArchived ? ' · archived' : ''}
           </div>
           <div className="flex gap-2">
+            <AddToCollectionButton itemId={item.id} />
             <button
               onClick={() =>
                 archiveMutation.mutate({ id: item.id, archived: !isArchived })

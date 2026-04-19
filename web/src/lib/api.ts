@@ -103,3 +103,113 @@ export const setItemArchived = (id: string, archived: boolean) =>
   api.patch<Item>(`/items/${id}`, { archived })
 
 export const deleteItem = (id: string) => api.delete<void>(`/items/${id}`)
+
+// ─── notes ────────────────────────────────────────────
+
+export interface Note {
+  id: string
+  title: string | null
+  body: string
+  created_at: string
+  updated_at: string
+}
+
+export interface NoteList {
+  notes: Note[]
+  total: number
+}
+
+export const listNotes = (limit = 100, offset = 0) =>
+  api.get<NoteList>(`/notes?limit=${limit}&offset=${offset}`)
+
+export const getNote = (id: string) => api.get<Note>(`/notes/${id}`)
+
+export const createNote = (body: { title?: string | null; body?: string }) =>
+  api.post<Note>('/notes', body)
+
+export const patchNote = (
+  id: string,
+  body: { title?: string | null; body?: string }
+) => api.patch<Note>(`/notes/${id}`, body)
+
+export const deleteNote = (id: string) => api.delete<void>(`/notes/${id}`)
+
+// ─── collections ──────────────────────────────────────
+
+export type MemberType = 'item' | 'note' | 'draft'
+
+export interface Collection {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+  member_count: number
+}
+
+export interface OutlineItemPayload {
+  id: string
+  title: string | null
+  author: string | null
+  summary: string | null
+  published_at: string | null
+  archived: boolean
+}
+
+export interface OutlineNotePayload {
+  id: string
+  title: string | null
+  body: string
+  updated_at: string | null
+}
+
+export interface OutlineNode {
+  member_type: MemberType
+  member_id: string
+  position: number
+  item: OutlineItemPayload | null
+  note: OutlineNotePayload | null
+}
+
+export interface Outline {
+  collection: Collection
+  members: OutlineNode[]
+}
+
+export const listCollections = () => api.get<Collection[]>('/collections')
+
+export const createCollection = (body: {
+  name: string
+  description?: string | null
+}) => api.post<Collection>('/collections', body)
+
+export const getCollection = (id: string) =>
+  api.get<Outline>(`/collections/${id}`)
+
+export const patchCollection = (
+  id: string,
+  body: { name?: string | null; description?: string | null }
+) => api.patch<Collection>(`/collections/${id}`, body)
+
+export const deleteCollection = (id: string) =>
+  api.delete<void>(`/collections/${id}`)
+
+export const addCollectionMember = (
+  id: string,
+  body: { member_type: MemberType; member_id: string }
+) => api.post<Outline>(`/collections/${id}/members`, body)
+
+export const createInlineNote = (
+  id: string,
+  body: { title?: string | null; body?: string }
+) => api.post<Outline>(`/collections/${id}/notes`, body)
+
+export const removeCollectionMember = (
+  id: string,
+  memberType: MemberType,
+  memberId: string
+) => api.delete<void>(`/collections/${id}/members/${memberType}/${memberId}`)
+
+export const reorderCollection = (
+  id: string,
+  members: Array<[MemberType, string]>
+) => api.post<Outline>(`/collections/${id}/reorder`, { members })

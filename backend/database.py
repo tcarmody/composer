@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Iterator
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class Database:
@@ -95,6 +95,47 @@ class Database:
                     INSERT INTO items_fts(rowid, title, author, summary, content, keywords)
                     VALUES (new.rowid, new.title, new.author, new.summary, new.content, new.keywords);
                 END;
+
+                CREATE TABLE IF NOT EXISTS notes (
+                    id         TEXT PRIMARY KEY,
+                    title      TEXT,
+                    body       TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_notes_updated_at
+                    ON notes(updated_at DESC);
+
+                CREATE TABLE IF NOT EXISTS item_notes (
+                    item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+                    note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+                    anchor  TEXT,
+                    PRIMARY KEY (item_id, note_id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_item_notes_note ON item_notes(note_id);
+
+                CREATE TABLE IF NOT EXISTS collections (
+                    id          TEXT PRIMARY KEY,
+                    name        TEXT NOT NULL,
+                    description TEXT,
+                    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_collections_created_at
+                    ON collections(created_at DESC);
+
+                CREATE TABLE IF NOT EXISTS collection_members (
+                    collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+                    member_type   TEXT NOT NULL CHECK (member_type IN ('item', 'note', 'draft')),
+                    member_id     TEXT NOT NULL,
+                    position      INTEGER NOT NULL,
+                    PRIMARY KEY (collection_id, member_type, member_id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_collection_members_order
+                    ON collection_members(collection_id, position);
             """)
             conn.execute(
                 "INSERT OR REPLACE INTO schema_meta(key, value) VALUES (?, ?)",

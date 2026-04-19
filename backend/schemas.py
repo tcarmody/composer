@@ -2,11 +2,13 @@
 Pydantic request/response schemas.
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from .repositories.collections import Collection, OutlineNode
 from .repositories.items import Item
+from .repositories.notes import Note
 
 
 class HealthResponse(BaseModel):
@@ -131,3 +133,146 @@ class ItemListResponse(BaseModel):
 
 class ItemPatchRequest(BaseModel):
     archived: bool | None = None
+
+
+# ─── notes ──────────────────────────────────────────────
+
+class NoteCreateRequest(BaseModel):
+    title: str | None = None
+    body: str = ""
+
+
+class NotePatchRequest(BaseModel):
+    title: str | None = None
+    body: str | None = None
+
+
+class NoteResponse(BaseModel):
+    id: str
+    title: str | None
+    body: str
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_note(cls, note: Note) -> "NoteResponse":
+        return cls(
+            id=note.id,
+            title=note.title,
+            body=note.body,
+            created_at=note.created_at,
+            updated_at=note.updated_at,
+        )
+
+
+class NoteListResponse(BaseModel):
+    notes: list[NoteResponse]
+    total: int
+
+
+# ─── collections ────────────────────────────────────────
+
+MemberType = Literal["item", "note", "draft"]
+
+
+class CollectionCreateRequest(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class CollectionPatchRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class CollectionResponse(BaseModel):
+    id: str
+    name: str
+    description: str | None
+    created_at: str
+    member_count: int
+
+    @classmethod
+    def from_collection(cls, c: Collection) -> "CollectionResponse":
+        return cls(
+            id=c.id,
+            name=c.name,
+            description=c.description,
+            created_at=c.created_at,
+            member_count=c.member_count,
+        )
+
+
+class AddMemberRequest(BaseModel):
+    member_type: MemberType
+    member_id: str
+
+
+class ReorderRequest(BaseModel):
+    members: list[tuple[MemberType, str]] = Field(
+        ..., description="Ordered list of (member_type, member_id)"
+    )
+
+
+class CreateInlineNoteRequest(BaseModel):
+    """Create a note and append it to a collection in one call."""
+
+    title: str | None = None
+    body: str = ""
+
+
+class OutlineItemPayload(BaseModel):
+    id: str
+    title: str | None
+    author: str | None
+    summary: str | None
+    published_at: str | None
+    archived: bool
+
+
+class OutlineNotePayload(BaseModel):
+    id: str
+    title: str | None
+    body: str
+    updated_at: str | None
+
+
+class OutlineNodeResponse(BaseModel):
+    member_type: MemberType
+    member_id: str
+    position: int
+    item: OutlineItemPayload | None = None
+    note: OutlineNotePayload | None = None
+
+    @classmethod
+    def from_node(cls, n: OutlineNode) -> "OutlineNodeResponse":
+        item_payload: OutlineItemPayload | None = None
+        note_payload: OutlineNotePayload | None = None
+        if n.member_type == "item":
+            item_payload = OutlineItemPayload(
+                id=n.member_id,
+                title=n.item_title,
+                author=n.item_author,
+                summary=n.item_summary,
+                published_at=n.item_published_at,
+                archived=n.item_archived,
+            )
+        elif n.member_type == "note":
+            note_payload = OutlineNotePayload(
+                id=n.member_id,
+                title=n.note_title,
+                body=n.note_body or "",
+                updated_at=n.note_updated_at,
+            )
+        return cls(
+            member_type=n.member_type,
+            member_id=n.member_id,
+            position=n.position,
+            item=item_payload,
+            note=note_payload,
+        )
+
+
+class OutlineResponse(BaseModel):
+    collection: CollectionResponse
+    members: list[OutlineNodeResponse]

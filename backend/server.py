@@ -10,8 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import config, state
 from .database import Database
-from .repositories import ItemRepository
-from .routes import health_router, ingest_router, items_router
+from .repositories import CollectionsRepository, ItemRepository, NotesRepository
+from .routes import (
+    collections_router,
+    health_router,
+    ingest_router,
+    items_router,
+    notes_router,
+)
 
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL, logging.INFO),
@@ -25,6 +31,8 @@ async def lifespan(app: FastAPI):
     if state.db is None:
         state.db = Database(config.DB_PATH)
         state.items = ItemRepository(state.db)
+        state.notes = NotesRepository(state.db)
+        state.collections = CollectionsRepository(state.db)
         logger.info(
             "Database ready at %s (schema v%d)", config.DB_PATH, state.db.version()
         )
@@ -48,3 +56,5 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(ingest_router)
 app.include_router(items_router)
+app.include_router(notes_router)
+app.include_router(collections_router)
