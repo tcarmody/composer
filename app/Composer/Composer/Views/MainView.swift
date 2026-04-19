@@ -4,49 +4,29 @@ struct MainView: View {
     @EnvironmentObject private var app: AppState
 
     var body: some View {
-        NavigationSplitView {
-            sidebar
-        } detail: {
-            detail
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                HealthBadge(status: app.health)
+        NavigationStack {
+            Group {
+                switch app.selectedTab {
+                case .library:
+                    LibraryView(api: app.api)
+                case .collections:
+                    CollectionsPlaceholder()
+                }
             }
-        }
-    }
-
-    private var sidebar: some View {
-        List(selection: $app.selectedTab) {
-            Section("Composer") {
-                ForEach(NavTab.allCases) { tab in
-                    Label(tab.rawValue, systemImage: tab.systemImage)
-                        .tag(tab)
+            .toolbar {
+                ToolbarItem(placement: .navigation) {
+                    Picker("Tab", selection: $app.selectedTab) {
+                        ForEach(NavTab.allCases) { tab in
+                            Label(tab.rawValue, systemImage: tab.systemImage).tag(tab)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    HealthBadge(status: app.health)
                 }
             }
         }
-        .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-        .listStyle(.sidebar)
-    }
-
-    @ViewBuilder
-    private var detail: some View {
-        switch app.selectedTab {
-        case .library:
-            LibraryPlaceholder()
-        case .collections:
-            CollectionsPlaceholder()
-        }
-    }
-}
-
-private struct LibraryPlaceholder: View {
-    var body: some View {
-        ContentUnavailableView(
-            "Library",
-            systemImage: "tray.full",
-            description: Text("Items promoted from DataPoints will appear here.")
-        )
     }
 }
 

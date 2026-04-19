@@ -55,13 +55,52 @@ final class APIClient {
         try await request("/v1/health", auth: false)
     }
 
+    // MARK: - Items
+
+    func listItems(
+        query: String? = nil,
+        archived: Bool? = false,
+        limit: Int? = nil,
+        offset: Int? = nil
+    ) async throws -> ItemListResponse {
+        var qs: [String] = []
+        if let query, !query.isEmpty {
+            qs.append("q=\(urlEncode(query))")
+        }
+        if let archived {
+            qs.append("archived=\(archived)")
+        }
+        if let limit { qs.append("limit=\(limit)") }
+        if let offset { qs.append("offset=\(offset)") }
+        let path = "/items" + (qs.isEmpty ? "" : "?\(qs.joined(separator: "&"))")
+        return try await request(path)
+    }
+
+    func getItem(id: String) async throws -> Item {
+        try await request("/items/\(id)")
+    }
+
+    func setItemArchived(id: String, archived: Bool) async throws -> Item {
+        let body = try JSONSerialization.data(withJSONObject: ["archived": archived])
+        return try await request("/items/\(id)", method: "PATCH", body: body)
+    }
+
+    func deleteItem(id: String) async throws {
+        let _: EmptyResponse = try await request("/items/\(id)", method: "DELETE", allow204: true)
+    }
+
     // MARK: - Core
+
+    private func urlEncode(_ s: String) -> String {
+        s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s
+    }
 
     private func request<T: Decodable>(
         _ path: String,
         method: String = "GET",
         body: Data? = nil,
-        auth: Bool = true
+        auth: Bool = true,
+        allow204: Bool = false
     ) async throws -> T {
         guard let url = URL(string: path, relativeTo: baseURL) else {
             throw APIError.invalidURL
@@ -91,6 +130,10 @@ final class APIClient {
             throw APIError.http(status: http.statusCode, body: body)
         }
 
+        if allow204 && (http.statusCode == 204 || data.isEmpty) {
+            return EmptyResponse() as! T
+        }
+
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
@@ -98,3 +141,5 @@ final class APIClient {
         }
     }
 }
+
+struct EmptyResponse: Decodable {}
