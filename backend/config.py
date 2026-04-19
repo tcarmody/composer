@@ -11,6 +11,7 @@ from fastapi import HTTPException
 
 if TYPE_CHECKING:
     from .database import Database
+    from .repositories import ItemRepository
 
 
 _backend_dir = Path(__file__).parent
@@ -55,6 +56,7 @@ config = Config()
 class AppState:
     """Shared application state."""
     db: "Database | None" = None
+    items: "ItemRepository | None" = None
 
 
 state = AppState()
@@ -64,3 +66,9 @@ def get_db() -> "Database":
     if not state.db:
         raise HTTPException(status_code=500, detail="Database not initialized")
     return state.db
+
+
+def get_items_repo() -> "ItemRepository":
+    if not state.items:
+        raise HTTPException(status_code=500, detail="Items repository not initialized")
+    return state.items

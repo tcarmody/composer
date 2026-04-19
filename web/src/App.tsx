@@ -1,42 +1,47 @@
 import { useQuery } from '@tanstack/react-query'
 import { getHealth } from './lib/api'
-import { Layout } from './components/Layout'
+import { Library } from './components/Library'
 
 function HealthBadge() {
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isError } = useQuery({
     queryKey: ['health'],
     queryFn: getHealth,
     refetchInterval: 10_000,
   })
 
-  if (isLoading) {
-    return <span className="text-sm text-muted-foreground">checking backend…</span>
-  }
   if (isError) {
-    return (
-      <span className="text-sm text-red-600">
-        backend unreachable: {(error as Error).message}
-      </span>
-    )
+    return <span className="text-red-600">● backend unreachable</span>
+  }
+  if (!data) {
+    return <span>checking…</span>
   }
   return (
-    <div className="text-sm text-muted-foreground">
-      <span className="text-green-600">●</span> backend {data!.status} · v{data!.version} ·
-      schema v{data!.schema_version}
-    </div>
+    <span>
+      <span className="text-green-600">●</span> {data.status} · v{data.version}
+    </span>
   )
 }
 
 export default function App() {
   return (
-    <Layout>
-      <div className="space-y-4">
-        <h2 className="text-2xl font-semibold">Workbench</h2>
-        <p className="text-muted-foreground">
-          Phase 0 skeleton. Promote something from DataPoints and it will appear here.
-        </p>
-        <HealthBadge />
-      </div>
-    </Layout>
+    <div className="h-screen flex flex-col">
+      <header className="border-b shrink-0">
+        <div className="px-6 py-3 flex items-center justify-between">
+          <div className="flex items-baseline gap-6">
+            <h1 className="text-lg font-semibold tracking-tight">Composer</h1>
+            <nav className="flex gap-4 text-sm text-muted-foreground">
+              <span className="text-foreground">Library</span>
+              <span>Ask</span>
+              <span>Arrange</span>
+              <span>Publish</span>
+            </nav>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            <HealthBadge />
+          </div>
+        </div>
+      </header>
+      <Library />
+    </div>
   )
 }
