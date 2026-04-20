@@ -26,6 +26,13 @@ final class DraftsModel: ObservableObject {
         }
     }
 
+    enum AssistState {
+        case idle
+        case running(DraftAssistAction)
+        case ready(DraftAssistAction, selection: NSRange, suggestion: String)
+        case error(String)
+    }
+
     @Published var listState: ListState = .idle
     @Published var editorState: EditorState = .empty
     @Published var selectedId: String?
@@ -35,6 +42,7 @@ final class DraftsModel: ObservableObject {
     @Published var isDirty: Bool = false
     @Published var titleDraft: String = ""
     @Published var statusDraft: DraftStatus = .wip
+    @Published var assistState: AssistState = .idle
 
     private let api: APIClient
     private var autosaveTask: Task<Void, Never>?
@@ -177,5 +185,28 @@ final class DraftsModel: ObservableObject {
     func statusChanged() {
         guard case .editing(_, _, _) = editorState else { return }
         handleAttributedChange()
+    }
+
+    func runAssist(action: DraftAssistAction, selection: NSRange, selectionText: String?) {
+        guard case .editing(let draft, _, _) = editorState else { return }
+        assistState = .running(action)
+        let payloadSelection = (selectionText?.isEmpty == false) ? selectionText : nil
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let response = try await self.api.assistDraft(
+                    id: draft.id,
+                    action: action,
+                    selection: payloadSelection
+                )
+                self.assistState = .ready(action, selection: selection, suggestion: response.suggestion)
+            } catch {
+                self.assistState = .error(error.localizedDescription)
+            }
+        }
+    }
+
+    func dismissAssist() {
+        assistState = .idle
     }
 }

@@ -161,6 +161,21 @@ final class APIClient {
         let _: EmptyResponse = try await request("/drafts/\(id)", method: "DELETE", allow204: true)
     }
 
+    func assistDraft(
+        id: String,
+        action: DraftAssistAction,
+        selection: String? = nil,
+        instructions: String? = nil
+    ) async throws -> DraftAssistResponse {
+        var payload: [String: Any] = ["action": action.rawValue]
+        if let selection, !selection.isEmpty { payload["selection"] = selection }
+        if let instructions, !instructions.isEmpty {
+            payload["instructions"] = instructions
+        }
+        let data = try JSONSerialization.data(withJSONObject: payload)
+        return try await request("/drafts/\(id)/assist", method: "POST", body: data)
+    }
+
     // MARK: - Collections
 
     func listCollections() async throws -> [Collection] {

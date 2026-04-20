@@ -213,6 +213,19 @@ class DraftListResponse(BaseModel):
     total: int
 
 
+AssistAction = Literal["rewrite", "expand", "summarize", "tighten"]
+
+
+class DraftAssistRequest(BaseModel):
+    action: AssistAction
+    selection: str | None = None
+    instructions: str | None = None
+
+
+class DraftAssistResponse(BaseModel):
+    suggestion: str
+
+
 # ─── collections ────────────────────────────────────────
 
 MemberType = Literal["item", "note", "draft"]

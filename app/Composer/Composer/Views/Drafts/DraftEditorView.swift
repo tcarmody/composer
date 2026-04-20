@@ -28,6 +28,10 @@ struct DraftEditorView: View {
         case .editing(let draft, _, _):
             editor(draft: draft)
                 .sheet(isPresented: $showLinkSheet) { linkSheet }
+                .sheet(isPresented: Binding(
+                    get: { isAssistSheetVisible },
+                    set: { if !$0 { model.dismissAssist() } }
+                )) { assistSheet }
                 .confirmationDialog(
                     "Delete this draft?",
                     isPresented: $showDeleteConfirm
@@ -37,6 +41,13 @@ struct DraftEditorView: View {
                 } message: {
                     Text("The draft will be removed permanently.")
                 }
+        }
+    }
+
+    private var isAssistSheetVisible: Bool {
+        switch model.assistState {
+        case .idle: return false
+        default: return true
         }
     }
 
@@ -86,6 +97,15 @@ struct DraftEditorView: View {
             Button("Save") { model.save() }
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(!model.isDirty)
+            Menu {
+                ForEach(DraftAssistAction.allCases, id: \.self) { action in
+                    Button(action.label) { runAssist(action) }
+                }
+            } label: {
+                Label("Assist", systemImage: "sparkles")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
             Menu {
                 Button("Markdown (.md)") { exportMarkdown(draft: draft) }
                 Button("HTML (.html)") { exportHTML(draft: draft) }
@@ -150,6 +170,95 @@ struct DraftEditorView: View {
         if panel.runModal() == .OK, let url = panel.url {
             try? contents.write(to: url, atomically: true, encoding: .utf8)
         }
+    }
+
+    private func runAssist(_ action: DraftAssistAction) {
+        let tv = commands.store.textView
+        let storage = tv?.textStorage
+        let range = tv?.selectedRange() ?? NSRange(location: 0, length: 0)
+        let selectionText: String? = {
+            guard let storage, range.length > 0 else { return nil }
+            return storage.attributedSubstring(from: range).string
+        }()
+        let fullRange = NSRange(location: 0, length: storage?.length ?? 0)
+        let targetRange = range.length > 0 ? range : fullRange
+        model.runAssist(action: action, selection: targetRange, selectionText: selectionText)
+    }
+
+    @ViewBuilder
+    private var assistSheet: some View {
+        switch model.assistState {
+        case .idle:
+            EmptyView()
+        case .running(let action):
+            VStack(spacing: 16) {
+                ProgressView()
+                Text("\(action.label) in progress…").font(.headline)
+                Text(action.description).font(.caption).foregroundStyle(.secondary)
+                Button("Cancel") { model.dismissAssist() }
+            }
+            .padding(32)
+            .frame(minWidth: 360)
+        case .error(let msg):
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Assist failed", systemImage: "exclamationmark.triangle")
+                    .font(.headline)
+                Text(msg).font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    Spacer()
+                    Button("Dismiss") { model.dismissAssist() }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(20)
+            .frame(minWidth: 420)
+        case .ready(let action, let selection, let suggestion):
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label(action.label, systemImage: "sparkles").font(.headline)
+                    Spacer()
+                }
+                Text(action.description).font(.caption).foregroundStyle(.secondary)
+                Divider()
+                ScrollView {
+                    Text(suggestion)
+                        .font(.system(.body, design: .default))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(minWidth: 520, minHeight: 220, idealHeight: 360)
+                HStack {
+                    Button("Copy") {
+                        let pb = NSPasteboard.general
+                        pb.clearContents()
+                        pb.setString(suggestion, forType: .string)
+                    }
+                    Spacer()
+                    Button("Cancel") { model.dismissAssist() }
+                    Button("Replace") { accept(suggestion: suggestion, range: selection) }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(20)
+        }
+    }
+
+    private func accept(suggestion: String, range: NSRange) {
+        guard let tv = commands.store.textView,
+              let storage = tv.textStorage else {
+            model.dismissAssist()
+            return
+        }
+        let replacement = MarkdownConverter.attributedString(from: suggestion)
+        let safe = NSRange(
+            location: min(range.location, storage.length),
+            length: min(range.length, max(0, storage.length - range.location))
+        )
+        storage.replaceCharacters(in: safe, with: replacement)
+        let newLen = (replacement.string as NSString).length
+        tv.setSelectedRange(NSRange(location: safe.location, length: newLen))
+        model.editorAttributed = NSAttributedString(attributedString: storage)
+        model.dismissAssist()
     }
 
     private var linkSheet: some View {

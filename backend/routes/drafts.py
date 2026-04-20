@@ -6,11 +6,14 @@ from ..auth import verify_api_key
 from ..config import get_drafts_repo
 from ..repositories import DraftsRepository
 from ..schemas import (
+    DraftAssistRequest,
+    DraftAssistResponse,
     DraftCreateRequest,
     DraftListResponse,
     DraftPatchRequest,
     DraftResponse,
 )
+from ..services.assist import AssistError, run_assist
 
 router = APIRouter(
     prefix="/drafts",
@@ -78,3 +81,24 @@ async def delete_draft(
 ) -> None:
     if not drafts.delete(draft_id):
         raise HTTPException(status_code=404, detail="Draft not found")
+
+
+@router.post("/{draft_id}/assist", response_model=DraftAssistResponse)
+async def assist_draft(
+    draft_id: str,
+    payload: DraftAssistRequest,
+    drafts: DraftsRepository = Depends(get_drafts_repo),
+) -> DraftAssistResponse:
+    draft = drafts.get(draft_id)
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    try:
+        suggestion = await run_assist(
+            action=payload.action,
+            draft_body=draft.body,
+            selection=payload.selection,
+            instructions=payload.instructions,
+        )
+    except AssistError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return DraftAssistResponse(suggestion=suggestion)
