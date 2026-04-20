@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Iterator
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 class Database:
@@ -149,6 +149,44 @@ class Database:
 
                 CREATE INDEX IF NOT EXISTS idx_drafts_updated_at
                     ON drafts(updated_at DESC);
+
+                CREATE TABLE IF NOT EXISTS chunks (
+                    id           TEXT PRIMARY KEY,
+                    source_type  TEXT NOT NULL
+                                 CHECK (source_type IN ('item', 'note', 'draft')),
+                    source_id    TEXT NOT NULL,
+                    chunk_index  INTEGER NOT NULL,
+                    content      TEXT NOT NULL,
+                    embedding    BLOB,
+                    model        TEXT,
+                    updated_at   TEXT NOT NULL DEFAULT (datetime('now')),
+                    UNIQUE (source_type, source_id, chunk_index)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_chunks_source
+                    ON chunks(source_type, source_id);
+
+                CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+                    content,
+                    content='chunks', content_rowid='rowid'
+                );
+
+                CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
+                    INSERT INTO chunks_fts(rowid, content)
+                    VALUES (new.rowid, new.content);
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
+                    INSERT INTO chunks_fts(chunks_fts, rowid, content)
+                    VALUES ('delete', old.rowid, old.content);
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
+                    INSERT INTO chunks_fts(chunks_fts, rowid, content)
+                    VALUES ('delete', old.rowid, old.content);
+                    INSERT INTO chunks_fts(rowid, content)
+                    VALUES (new.rowid, new.content);
+                END;
             """)
             conn.execute(
                 "INSERT OR REPLACE INTO schema_meta(key, value) VALUES (?, ?)",

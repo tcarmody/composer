@@ -1,5 +1,7 @@
 """Collections routes. X-API-Key guarded."""
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import verify_api_key
@@ -28,6 +30,7 @@ from ..schemas import (
     ReorderRequest,
 )
 from ..services.compile import compile_outline_to_markdown
+from ..services.indexer import index_draft, index_note
 
 router = APIRouter(
     prefix="/collections",
@@ -144,6 +147,7 @@ async def create_inline_note(
     if not collections.get(collection_id):
         raise HTTPException(status_code=404, detail="Collection not found")
     note = notes.create(title=payload.title, body=payload.body)
+    asyncio.create_task(index_note(note))
     collections.add_member(
         collection_id=collection_id, member_type="note", member_id=note.id
     )
@@ -202,4 +206,5 @@ async def compile_to_draft(
     )
     title = payload.title or c.name
     draft = drafts.create(title=title, body=body, status="wip")
+    asyncio.create_task(index_draft(draft))
     return DraftResponse.from_draft(draft)

@@ -1,5 +1,7 @@
 """Notes routes. X-API-Key guarded."""
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..auth import verify_api_key
@@ -11,6 +13,7 @@ from ..schemas import (
     NotePatchRequest,
     NoteResponse,
 )
+from ..services.indexer import deindex, index_note
 
 router = APIRouter(
     prefix="/notes",
@@ -38,6 +41,7 @@ async def create_note(
     notes: NotesRepository = Depends(get_notes_repo),
 ) -> NoteResponse:
     note = notes.create(title=payload.title, body=payload.body)
+    asyncio.create_task(index_note(note))
     return NoteResponse.from_note(note)
 
 
@@ -61,6 +65,7 @@ async def patch_note(
     updated = notes.update(note_id, title=payload.title, body=payload.body)
     if not updated:
         raise HTTPException(status_code=404, detail="Note not found")
+    asyncio.create_task(index_note(updated))
     return NoteResponse.from_note(updated)
 
 
@@ -71,3 +76,4 @@ async def delete_note(
 ) -> None:
     if not notes.delete(note_id):
         raise HTTPException(status_code=404, detail="Note not found")
+    deindex("note", note_id)

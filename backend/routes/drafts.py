@@ -1,5 +1,7 @@
 """Drafts routes. X-API-Key guarded."""
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..auth import verify_api_key
@@ -14,6 +16,7 @@ from ..schemas import (
     DraftResponse,
 )
 from ..services.assist import AssistError, run_assist
+from ..services.indexer import deindex, index_draft
 
 router = APIRouter(
     prefix="/drafts",
@@ -43,6 +46,7 @@ async def create_draft(
     draft = drafts.create(
         title=payload.title, body=payload.body, status=payload.status
     )
+    asyncio.create_task(index_draft(draft))
     return DraftResponse.from_draft(draft)
 
 
@@ -71,6 +75,7 @@ async def patch_draft(
     )
     if not updated:
         raise HTTPException(status_code=404, detail="Draft not found")
+    asyncio.create_task(index_draft(updated))
     return DraftResponse.from_draft(updated)
 
 
@@ -81,6 +86,7 @@ async def delete_draft(
 ) -> None:
     if not drafts.delete(draft_id):
         raise HTTPException(status_code=404, detail="Draft not found")
+    deindex("draft", draft_id)
 
 
 @router.post("/{draft_id}/assist", response_model=DraftAssistResponse)

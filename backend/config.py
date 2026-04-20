@@ -12,6 +12,7 @@ from fastapi import HTTPException
 if TYPE_CHECKING:
     from .database import Database
     from .repositories import (
+        ChunksRepository,
         CollectionsRepository,
         DraftsRepository,
         ItemRepository,
@@ -42,6 +43,7 @@ class Config:
 
     LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "")
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "")
 
     DB_PATH: Path = Path(os.getenv("DB_PATH", "./data/composer.db"))
     PORT: int = int(os.getenv("PORT", "5006"))
@@ -65,6 +67,7 @@ class AppState:
     notes: "NotesRepository | None" = None
     collections: "CollectionsRepository | None" = None
     drafts: "DraftsRepository | None" = None
+    chunks: "ChunksRepository | None" = None
 
 
 state = AppState()
@@ -98,3 +101,9 @@ def get_drafts_repo() -> "DraftsRepository":
     if not state.drafts:
         raise HTTPException(status_code=500, detail="Drafts repository not initialized")
     return state.drafts
+
+
+def get_chunks_repo() -> "ChunksRepository":
+    if not state.chunks:
+        raise HTTPException(status_code=500, detail="Chunks repository not initialized")
+    return state.chunks

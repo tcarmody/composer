@@ -4,6 +4,8 @@ Public ingest API — consumed by DataPoints to promote articles into Composer.
 Guarded by COMPOSER_INGEST_KEY (optional in dev).
 """
 
+import asyncio
+
 from fastapi import APIRouter, Depends
 
 from ..auth import verify_ingest_key
@@ -14,6 +16,7 @@ from ..schemas import (
     IngestItemRequest,
     IngestItemResponse,
 )
+from ..services.indexer import index_item
 
 router = APIRouter(
     prefix="/v1/ingest",
@@ -45,6 +48,8 @@ async def ingest_item(
         related_links=[rl.model_dump() for rl in payload.related_links],
         metadata=payload.metadata,
     )
+    if created:
+        asyncio.create_task(index_item(item))
     return IngestItemResponse(
         id=item.id,
         url=_item_url(item.id),
@@ -84,6 +89,7 @@ async def ingest_items_batch(
         )
         if was_created:
             created += 1
+            asyncio.create_task(index_item(item))
         else:
             skipped += 1
     return IngestBatchResponse(items=results, created=created, skipped=skipped)

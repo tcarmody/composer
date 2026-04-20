@@ -4,6 +4,8 @@ Internal items API — consumed by the Composer frontend.
 Guarded by AUTH_API_KEY (optional in dev).
 """
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..auth import verify_api_key
@@ -15,6 +17,7 @@ from ..schemas import (
     ItemResponse,
     ItemSummaryResponse,
 )
+from ..services.indexer import deindex, index_item
 
 router = APIRouter(
     prefix="/items",
@@ -64,6 +67,7 @@ async def patch_item(
         updated = items.set_archived(item_id, patch.archived)
         if not updated:
             raise HTTPException(status_code=404, detail="Item not found")
+        asyncio.create_task(index_item(updated))
         return ItemResponse.from_item(updated)
 
     item = items.get(item_id)
@@ -80,3 +84,4 @@ async def delete_item(
     ok = items.delete(item_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Item not found")
+    deindex("item", item_id)
