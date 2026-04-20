@@ -51,6 +51,7 @@ enum HealthStatus: Equatable {
 enum NavTab: String, CaseIterable, Identifiable {
     case library = "Library"
     case collections = "Collections"
+    case notes = "Notes"
 
     var id: String { rawValue }
 
@@ -58,6 +59,7 @@ enum NavTab: String, CaseIterable, Identifiable {
         switch self {
         case .library: return "tray.full"
         case .collections: return "rectangle.stack"
+        case .notes: return "note.text"
         }
     }
 }

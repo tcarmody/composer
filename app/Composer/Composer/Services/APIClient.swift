@@ -89,6 +89,37 @@ final class APIClient {
         let _: EmptyResponse = try await request("/items/\(id)", method: "DELETE", allow204: true)
     }
 
+    // MARK: - Notes
+
+    func listNotes(limit: Int = 100, offset: Int = 0) async throws -> NoteListResponse {
+        try await request("/notes?limit=\(limit)&offset=\(offset)")
+    }
+
+    func getNote(id: String) async throws -> Note {
+        try await request("/notes/\(id)")
+    }
+
+    func createNote(title: String? = nil, body: String = "") async throws -> Note {
+        var payload: [String: Any] = ["body": body]
+        if let title { payload["title"] = title }
+        let data = try JSONSerialization.data(withJSONObject: payload)
+        return try await request("/notes", method: "POST", body: data)
+    }
+
+    func patchNote(id: String, title: String?? = nil, body: String? = nil) async throws -> Note {
+        var payload: [String: Any] = [:]
+        if case .some(let value) = title {
+            payload["title"] = value ?? NSNull()
+        }
+        if let body { payload["body"] = body }
+        let data = try JSONSerialization.data(withJSONObject: payload)
+        return try await request("/notes/\(id)", method: "PATCH", body: data)
+    }
+
+    func deleteNote(id: String) async throws {
+        let _: EmptyResponse = try await request("/notes/\(id)", method: "DELETE", allow204: true)
+    }
+
     // MARK: - Collections
 
     func listCollections() async throws -> [Collection] {
