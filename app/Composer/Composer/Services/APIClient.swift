@@ -120,6 +120,47 @@ final class APIClient {
         let _: EmptyResponse = try await request("/notes/\(id)", method: "DELETE", allow204: true)
     }
 
+    // MARK: - Drafts
+
+    func listDrafts(limit: Int = 100, offset: Int = 0) async throws -> DraftListResponse {
+        try await request("/drafts?limit=\(limit)&offset=\(offset)")
+    }
+
+    func getDraft(id: String) async throws -> Draft {
+        try await request("/drafts/\(id)")
+    }
+
+    func createDraft(
+        title: String? = nil,
+        body: String = "",
+        status: DraftStatus = .wip
+    ) async throws -> Draft {
+        var payload: [String: Any] = ["body": body, "status": status.rawValue]
+        if let title { payload["title"] = title }
+        let data = try JSONSerialization.data(withJSONObject: payload)
+        return try await request("/drafts", method: "POST", body: data)
+    }
+
+    func patchDraft(
+        id: String,
+        title: String?? = nil,
+        body: String? = nil,
+        status: DraftStatus? = nil
+    ) async throws -> Draft {
+        var payload: [String: Any] = [:]
+        if case .some(let value) = title {
+            payload["title"] = value ?? NSNull()
+        }
+        if let body { payload["body"] = body }
+        if let status { payload["status"] = status.rawValue }
+        let data = try JSONSerialization.data(withJSONObject: payload)
+        return try await request("/drafts/\(id)", method: "PATCH", body: data)
+    }
+
+    func deleteDraft(id: String) async throws {
+        let _: EmptyResponse = try await request("/drafts/\(id)", method: "DELETE", allow204: true)
+    }
+
     // MARK: - Collections
 
     func listCollections() async throws -> [Collection] {

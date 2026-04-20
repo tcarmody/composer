@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Iterator
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 class Database:
@@ -136,6 +136,19 @@ class Database:
 
                 CREATE INDEX IF NOT EXISTS idx_collection_members_order
                     ON collection_members(collection_id, position);
+
+                CREATE TABLE IF NOT EXISTS drafts (
+                    id         TEXT PRIMARY KEY,
+                    title      TEXT,
+                    body       TEXT NOT NULL DEFAULT '',
+                    status     TEXT NOT NULL DEFAULT 'wip'
+                               CHECK (status IN ('wip', 'final')),
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_drafts_updated_at
+                    ON drafts(updated_at DESC);
             """)
             conn.execute(
                 "INSERT OR REPLACE INTO schema_meta(key, value) VALUES (?, ?)",

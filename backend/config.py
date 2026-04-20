@@ -11,7 +11,12 @@ from fastapi import HTTPException
 
 if TYPE_CHECKING:
     from .database import Database
-    from .repositories import CollectionsRepository, ItemRepository, NotesRepository
+    from .repositories import (
+        CollectionsRepository,
+        DraftsRepository,
+        ItemRepository,
+        NotesRepository,
+    )
 
 
 _backend_dir = Path(__file__).parent
@@ -59,6 +64,7 @@ class AppState:
     items: "ItemRepository | None" = None
     notes: "NotesRepository | None" = None
     collections: "CollectionsRepository | None" = None
+    drafts: "DraftsRepository | None" = None
 
 
 state = AppState()
@@ -86,3 +92,9 @@ def get_collections_repo() -> "CollectionsRepository":
     if not state.collections:
         raise HTTPException(status_code=500, detail="Collections repository not initialized")
     return state.collections
+
+
+def get_drafts_repo() -> "DraftsRepository":
+    if not state.drafts:
+        raise HTTPException(status_code=500, detail="Drafts repository not initialized")
+    return state.drafts

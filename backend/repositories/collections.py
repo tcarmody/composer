@@ -42,6 +42,11 @@ class OutlineNode:
     note_title: str | None = None
     note_body: str | None = None
     note_updated_at: str | None = None
+    # Draft fields (present when member_type == 'draft')
+    draft_title: str | None = None
+    draft_body: str | None = None
+    draft_status: str | None = None
+    draft_updated_at: str | None = None
 
 
 def _row_to_collection(row: sqlite3.Row) -> Collection:
@@ -67,6 +72,10 @@ def _row_to_outline_node(row: sqlite3.Row) -> OutlineNode:
         note_title=row["note_title"],
         note_body=row["note_body"],
         note_updated_at=row["note_updated_at"],
+        draft_title=row["draft_title"],
+        draft_body=row["draft_body"],
+        draft_status=row["draft_status"],
+        draft_updated_at=row["draft_updated_at"],
     )
 
 
@@ -246,10 +255,15 @@ class CollectionsRepository:
                         AS item_archived,
                     notes.title         AS note_title,
                     notes.body          AS note_body,
-                    notes.updated_at    AS note_updated_at
+                    notes.updated_at    AS note_updated_at,
+                    drafts.title        AS draft_title,
+                    drafts.body         AS draft_body,
+                    drafts.status       AS draft_status,
+                    drafts.updated_at   AS draft_updated_at
                 FROM collection_members cm
-                LEFT JOIN items ON items.id = cm.member_id AND cm.member_type = 'item'
-                LEFT JOIN notes ON notes.id = cm.member_id AND cm.member_type = 'note'
+                LEFT JOIN items  ON items.id  = cm.member_id AND cm.member_type = 'item'
+                LEFT JOIN notes  ON notes.id  = cm.member_id AND cm.member_type = 'note'
+                LEFT JOIN drafts ON drafts.id = cm.member_id AND cm.member_type = 'draft'
                 WHERE cm.collection_id = ?
                 ORDER BY cm.position ASC
                 """,

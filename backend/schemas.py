@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from .repositories.collections import Collection, OutlineNode
+from .repositories.drafts import Draft
 from .repositories.items import Item
 from .repositories.notes import Note
 
@@ -170,6 +171,48 @@ class NoteListResponse(BaseModel):
     total: int
 
 
+# ─── drafts ─────────────────────────────────────────────
+
+DraftStatus = Literal["wip", "final"]
+
+
+class DraftCreateRequest(BaseModel):
+    title: str | None = None
+    body: str = ""
+    status: DraftStatus = "wip"
+
+
+class DraftPatchRequest(BaseModel):
+    title: str | None = None
+    body: str | None = None
+    status: DraftStatus | None = None
+
+
+class DraftResponse(BaseModel):
+    id: str
+    title: str | None
+    body: str
+    status: DraftStatus
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_draft(cls, draft: Draft) -> "DraftResponse":
+        return cls(
+            id=draft.id,
+            title=draft.title,
+            body=draft.body,
+            status=draft.status,
+            created_at=draft.created_at,
+            updated_at=draft.updated_at,
+        )
+
+
+class DraftListResponse(BaseModel):
+    drafts: list[DraftResponse]
+    total: int
+
+
 # ─── collections ────────────────────────────────────────
 
 MemberType = Literal["item", "note", "draft"]
@@ -237,17 +280,27 @@ class OutlineNotePayload(BaseModel):
     updated_at: str | None
 
 
+class OutlineDraftPayload(BaseModel):
+    id: str
+    title: str | None
+    body: str
+    status: DraftStatus
+    updated_at: str | None
+
+
 class OutlineNodeResponse(BaseModel):
     member_type: MemberType
     member_id: str
     position: int
     item: OutlineItemPayload | None = None
     note: OutlineNotePayload | None = None
+    draft: OutlineDraftPayload | None = None
 
     @classmethod
     def from_node(cls, n: OutlineNode) -> "OutlineNodeResponse":
         item_payload: OutlineItemPayload | None = None
         note_payload: OutlineNotePayload | None = None
+        draft_payload: OutlineDraftPayload | None = None
         if n.member_type == "item":
             item_payload = OutlineItemPayload(
                 id=n.member_id,
@@ -264,12 +317,21 @@ class OutlineNodeResponse(BaseModel):
                 body=n.note_body or "",
                 updated_at=n.note_updated_at,
             )
+        elif n.member_type == "draft":
+            draft_payload = OutlineDraftPayload(
+                id=n.member_id,
+                title=n.draft_title,
+                body=n.draft_body or "",
+                status=n.draft_status or "wip",  # type: ignore[arg-type]
+                updated_at=n.draft_updated_at,
+            )
         return cls(
             member_type=n.member_type,
             member_id=n.member_id,
             position=n.position,
             item=item_payload,
             note=note_payload,
+            draft=draft_payload,
         )
 
 

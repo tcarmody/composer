@@ -3,9 +3,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import verify_api_key
-from ..config import get_collections_repo, get_items_repo, get_notes_repo
+from ..config import (
+    get_collections_repo,
+    get_drafts_repo,
+    get_items_repo,
+    get_notes_repo,
+)
 from ..repositories import (
     CollectionsRepository,
+    DraftsRepository,
     ItemRepository,
     NotesRepository,
 )
@@ -97,6 +103,7 @@ async def add_member(
     collections: CollectionsRepository = Depends(get_collections_repo),
     items: ItemRepository = Depends(get_items_repo),
     notes: NotesRepository = Depends(get_notes_repo),
+    drafts: DraftsRepository = Depends(get_drafts_repo),
 ) -> OutlineResponse:
     if not collections.get(collection_id):
         raise HTTPException(status_code=404, detail="Collection not found")
@@ -106,10 +113,13 @@ async def add_member(
     elif payload.member_type == "note":
         if not notes.get(payload.member_id):
             raise HTTPException(status_code=404, detail="Note not found")
+    elif payload.member_type == "draft":
+        if not drafts.get(payload.member_id):
+            raise HTTPException(status_code=404, detail="Draft not found")
     else:
         raise HTTPException(
             status_code=400,
-            detail=f"member_type '{payload.member_type}' not supported yet",
+            detail=f"Invalid member_type '{payload.member_type}'",
         )
 
     collections.add_member(

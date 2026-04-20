@@ -22,6 +22,8 @@ struct AppCommands: Commands {
                 .keyboardShortcut("2", modifiers: .command)
             Button("Notes") { appState.selectedTab = .notes }
                 .keyboardShortcut("3", modifiers: .command)
+            Button("Drafts") { appState.selectedTab = .drafts }
+                .keyboardShortcut("4", modifiers: .command)
             Divider()
             Button("Refresh") {
                 refreshAction?.perform()

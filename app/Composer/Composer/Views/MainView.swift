@@ -13,6 +13,8 @@ struct MainView: View {
                     CollectionsView(api: app.api)
                 case .notes:
                     NotesView(api: app.api)
+                case .drafts:
+                    DraftsView(api: app.api)
                 }
             }
             .toolbar {
