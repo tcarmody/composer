@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/tim/Workspace/macreader/**)",
+      "Read(//Users/tim/Workspace/macreader/web/**)"
+    ]
+  }
+}
