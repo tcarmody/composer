@@ -25,6 +25,7 @@ from .routes import (
     ingest_router,
     items_router,
     notes_router,
+    search_router,
 )
 
 logging.basicConfig(
@@ -70,3 +71,4 @@ app.include_router(notes_router)
 app.include_router(drafts_router)
 app.include_router(collections_router)
 app.include_router(admin_router)
+app.include_router(search_router)

@@ -133,3 +133,69 @@ class ChunksRepository:
                 "SELECT source_type, COUNT(*) AS n FROM chunks GROUP BY source_type"
             ).fetchall()
             return {r["source_type"]: r["n"] for r in rows}
+
+    def fts_search(
+        self,
+        *,
+        query: str,
+        source_types: list[SourceType] | None,
+        limit: int,
+    ) -> list[tuple[str, float]]:
+        """FTS5 BM25 search. Returns (chunk_id, bm25_score) tuples, best first.
+        Lower bm25 score = better match.
+        """
+        sql = """
+            SELECT c.id AS id, bm25(chunks_fts) AS score
+            FROM chunks_fts
+            JOIN chunks c ON c.rowid = chunks_fts.rowid
+            WHERE chunks_fts MATCH ?
+        """
+        params: list = [query]
+        if source_types:
+            placeholders = ",".join("?" for _ in source_types)
+            sql += f" AND c.source_type IN ({placeholders})"
+            params.extend(source_types)
+        sql += " ORDER BY score LIMIT ?"
+        params.append(limit)
+        with self.db.conn() as conn:
+            try:
+                rows = conn.execute(sql, tuple(params)).fetchall()
+            except sqlite3.OperationalError:
+                return []
+            return [(r["id"], r["score"]) for r in rows]
+
+    def iter_with_embeddings(
+        self, source_types: list[SourceType] | None
+    ) -> list[tuple[str, SourceType, str, int, str, list[float]]]:
+        """Pull every chunk that has an embedding, filtered by source_type."""
+        sql = """
+            SELECT id, source_type, source_id, chunk_index, content, embedding
+            FROM chunks
+            WHERE embedding IS NOT NULL
+        """
+        params: list = []
+        if source_types:
+            placeholders = ",".join("?" for _ in source_types)
+            sql += f" AND source_type IN ({placeholders})"
+            params.extend(source_types)
+        with self.db.conn() as conn:
+            rows = conn.execute(sql, tuple(params)).fetchall()
+        out = []
+        for r in rows:
+            vec = unpack_embedding(r["embedding"])
+            if vec is None:
+                continue
+            out.append((r["id"], r["source_type"], r["source_id"], r["chunk_index"], r["content"], vec))
+        return out
+
+    def get_many(self, chunk_ids: list[str]) -> dict[str, Chunk]:
+        """Return {chunk_id: Chunk} for the given ids."""
+        if not chunk_ids:
+            return {}
+        placeholders = ",".join("?" for _ in chunk_ids)
+        with self.db.conn() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM chunks WHERE id IN ({placeholders})",
+                tuple(chunk_ids),
+            ).fetchall()
+        return {r["id"]: _row_to_chunk(r) for r in rows}

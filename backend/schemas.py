@@ -358,3 +358,33 @@ class OutlineNodeResponse(BaseModel):
 class OutlineResponse(BaseModel):
     collection: CollectionResponse
     members: list[OutlineNodeResponse]
+
+
+# ─── search ─────────────────────────────────────────────
+
+SourceType = Literal["item", "note", "draft"]
+
+
+class SearchRequest(BaseModel):
+    query: str
+    source_types: list[SourceType] | None = None
+    limit: int = Field(10, ge=1, le=50)
+
+
+class SearchHit(BaseModel):
+    chunk_id: str
+    source_type: SourceType
+    source_id: str
+    source_title: str | None
+    source_url: str | None
+    chunk_index: int
+    content: str
+    score: float
+    bm25_rank: int | None = None
+    vector_rank: int | None = None
+
+
+class SearchResponse(BaseModel):
+    query: str
+    hits: list[SearchHit]
+    vector_search_used: bool
