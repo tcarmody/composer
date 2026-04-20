@@ -14,6 +14,12 @@ struct NotesView: View {
         } detail: {
             NoteEditorView(model: model)
         }
+        .focusedSceneValue(\.newItemAction, NewItemAction(title: "New Note") {
+            model.create()
+        })
+        .focusedSceneValue(\.refreshAction, RefreshAction {
+            model.refreshList()
+        })
         .onAppear {
             if case .idle = model.listState {
                 model.refreshList()

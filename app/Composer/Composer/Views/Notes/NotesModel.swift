@@ -36,10 +36,15 @@ final class NotesModel: ObservableObject {
     @Published var titleDraft: String = ""
 
     private let api: APIClient
-    private var saveTask: Task<Void, Never>?
+    private var autosaveTask: Task<Void, Never>?
+    private let autosaveDelay: Duration = .milliseconds(1200)
 
     init(api: APIClient) {
         self.api = api
+    }
+
+    deinit {
+        autosaveTask?.cancel()
     }
 
     func refreshList() {
@@ -56,16 +61,20 @@ final class NotesModel: ObservableObject {
     }
 
     func select(_ id: String?) {
-        selectedId = id
-        guard let id else {
-            editorState = .empty
-            editorAttributed = NSAttributedString(string: "")
-            isDirty = false
-            titleDraft = ""
-            return
-        }
+        autosaveTask?.cancel()
         Task { [weak self] in
             guard let self else { return }
+            if self.isDirty, case .editing = self.editorState {
+                await self.saveNow()
+            }
+            self.selectedId = id
+            guard let id else {
+                self.editorState = .empty
+                self.editorAttributed = NSAttributedString(string: "")
+                self.isDirty = false
+                self.titleDraft = ""
+                return
+            }
             self.editorState = .loading
             do {
                 let note = try await self.api.getNote(id: id)
@@ -112,23 +121,24 @@ final class NotesModel: ObservableObject {
     }
 
     func save() {
+        Task { [weak self] in await self?.saveNow() }
+    }
+
+    private func saveNow() async {
         guard case .editing(let note, _, _) = editorState else { return }
         let markdown = MarkdownConverter.markdown(from: editorAttributed)
         let title = titleDraft.isEmpty ? nil : titleDraft
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                let updated = try await self.api.patchNote(
-                    id: note.id,
-                    title: .some(title),
-                    body: markdown
-                )
-                self.editorState = .editing(updated, self.editorAttributed, markdown)
-                self.isDirty = false
-                self.refreshList()
-            } catch {
-                self.editorState = .error(error.localizedDescription)
-            }
+        do {
+            let updated = try await self.api.patchNote(
+                id: note.id,
+                title: .some(title),
+                body: markdown
+            )
+            self.editorState = .editing(updated, self.editorAttributed, markdown)
+            self.isDirty = false
+            self.refreshList()
+        } catch {
+            self.editorState = .error(error.localizedDescription)
         }
     }
 
@@ -138,6 +148,19 @@ final class NotesModel: ObservableObject {
         editorState = .editing(note, editorAttributed, current)
         let titleChanged = titleDraft != (note.title ?? "")
         isDirty = current != original || titleChanged
+        if isDirty { scheduleAutosave() }
+    }
+
+    private func scheduleAutosave() {
+        autosaveTask?.cancel()
+        autosaveTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: self.autosaveDelay)
+            if Task.isCancelled { return }
+            if self.isDirty {
+                await self.saveNow()
+            }
+        }
     }
 
     func titleChanged() {

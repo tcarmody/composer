@@ -14,6 +14,9 @@ struct LibraryView: View {
         } detail: {
             ItemDetailView(model: model)
         }
+        .focusedSceneValue(\.refreshAction, RefreshAction {
+            model.refreshList()
+        })
         .onAppear {
             if case .idle = model.listState {
                 model.refreshList()

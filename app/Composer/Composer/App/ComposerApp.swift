@@ -12,6 +12,9 @@ struct ComposerApp: App {
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified)
+        .commands {
+            AppCommands(appState: appState)
+        }
 
         Settings {
             SettingsView()

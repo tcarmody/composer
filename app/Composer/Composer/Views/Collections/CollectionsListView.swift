@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CollectionsListView: View {
     @ObservedObject var model: CollectionsModel
+    @Binding var externalShowNew: Bool
     @State private var isCreating = false
     @State private var newName = ""
 
@@ -10,6 +11,12 @@ struct CollectionsListView: View {
             createBar
             Divider()
             list
+        }
+        .onChange(of: externalShowNew) { _, newValue in
+            if newValue {
+                isCreating = true
+                externalShowNew = false
+            }
         }
     }
 
