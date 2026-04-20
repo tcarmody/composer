@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct DraftEditorView: View {
     @ObservedObject var model: DraftsModel
@@ -85,9 +86,70 @@ struct DraftEditorView: View {
             Button("Save") { model.save() }
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(!model.isDirty)
+            Menu {
+                Button("Markdown (.md)") { exportMarkdown(draft: draft) }
+                Button("HTML (.html)") { exportHTML(draft: draft) }
+                Button("Copy HTML to Clipboard") { copyHTML(draft: draft) }
+            } label: {
+                Label("Export", systemImage: "square.and.arrow.up")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
             Button("Delete", role: .destructive) { showDeleteConfirm = true }
         }
         .padding(16)
+    }
+
+    private func filename(for draft: Draft, ext: String) -> String {
+        let base = (draft.title?.isEmpty == false ? draft.title! : "Untitled")
+        let safe = base.replacingOccurrences(
+            of: "[^A-Za-z0-9 _-]", with: "", options: .regularExpression
+        ).trimmingCharacters(in: .whitespaces)
+        return (safe.isEmpty ? "Untitled" : safe) + "." + ext
+    }
+
+    private func exportMarkdown(draft: Draft) {
+        let markdown = MarkdownConverter.markdown(from: model.editorAttributed)
+        let body: String
+        if let t = draft.title, !t.isEmpty, !markdown.hasPrefix("# ") {
+            body = "# \(t)\n\n\(markdown)"
+        } else {
+            body = markdown
+        }
+        savePanel(
+            suggested: filename(for: draft, ext: "md"),
+            type: UTType(filenameExtension: "md") ?? .plainText,
+            contents: body
+        )
+    }
+
+    private func exportHTML(draft: Draft) {
+        let markdown = MarkdownConverter.markdown(from: model.editorAttributed)
+        let html = MarkdownExporter.html(from: markdown, title: draft.title)
+        savePanel(
+            suggested: filename(for: draft, ext: "html"),
+            type: .html,
+            contents: html
+        )
+    }
+
+    private func copyHTML(draft: Draft) {
+        let markdown = MarkdownConverter.markdown(from: model.editorAttributed)
+        let html = MarkdownExporter.htmlBody(from: markdown)
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(html, forType: .html)
+        pb.setString(html, forType: .string)
+    }
+
+    private func savePanel(suggested: String, type: UTType, contents: String) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = suggested
+        panel.allowedContentTypes = [type]
+        panel.canCreateDirectories = true
+        if panel.runModal() == .OK, let url = panel.url {
+            try? contents.write(to: url, atomically: true, encoding: .utf8)
+        }
     }
 
     private var linkSheet: some View {
