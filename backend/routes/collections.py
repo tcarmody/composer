@@ -20,11 +20,14 @@ from ..schemas import (
     CollectionCreateRequest,
     CollectionPatchRequest,
     CollectionResponse,
+    CompileCollectionRequest,
     CreateInlineNoteRequest,
+    DraftResponse,
     OutlineNodeResponse,
     OutlineResponse,
     ReorderRequest,
 )
+from ..services.compile import compile_outline_to_markdown
 
 router = APIRouter(
     prefix="/collections",
@@ -175,3 +178,28 @@ async def reorder_members(
         raise HTTPException(status_code=404, detail="Collection not found")
     collections.reorder(collection_id=collection_id, ordered_members=payload.members)
     return _build_outline(collections, collection_id)
+
+
+@router.post("/{collection_id}/compile", response_model=DraftResponse, status_code=201)
+async def compile_to_draft(
+    collection_id: str,
+    payload: CompileCollectionRequest,
+    collections: CollectionsRepository = Depends(get_collections_repo),
+    items: ItemRepository = Depends(get_items_repo),
+    drafts: DraftsRepository = Depends(get_drafts_repo),
+) -> DraftResponse:
+    c = collections.get(collection_id)
+    if not c:
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    members = collections.list_members(collection_id)
+    body = compile_outline_to_markdown(
+        collection_name=c.name,
+        collection_description=c.description,
+        members=members,
+        items_repo=items,
+        include_full_content=payload.include_full_content,
+    )
+    title = payload.title or c.name
+    draft = drafts.create(title=title, body=body, status="wip")
+    return DraftResponse.from_draft(draft)

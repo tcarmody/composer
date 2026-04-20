@@ -6,6 +6,7 @@ final class AppState: ObservableObject {
     @Published var health: HealthStatus = .unknown
     @Published var selectedTab: NavTab = .library
     @Published var apiKey: String = KeychainService.shared.apiKey ?? ""
+    @Published var pendingDraftSelection: String?
 
     let api = APIClient()
 
@@ -20,6 +21,11 @@ final class AppState: ObservableObject {
         apiKey = key
         api.apiKey = key.isEmpty ? nil : key
         KeychainService.shared.apiKey = key.isEmpty ? nil : key
+    }
+
+    func openDraft(id: String) {
+        pendingDraftSelection = id
+        selectedTab = .drafts
     }
 
     func startHealthPolling() {

@@ -208,6 +208,17 @@ final class APIClient {
         return try await request("/collections/\(collectionId)/notes", method: "POST", body: data)
     }
 
+    func compileCollection(
+        id: String,
+        title: String? = nil,
+        includeFullContent: Bool = false
+    ) async throws -> Draft {
+        var payload: [String: Any] = ["include_full_content": includeFullContent]
+        if let title { payload["title"] = title }
+        let data = try JSONSerialization.data(withJSONObject: payload)
+        return try await request("/collections/\(id)/compile", method: "POST", body: data)
+    }
+
     // MARK: - Core
 
     private func urlEncode(_ s: String) -> String {

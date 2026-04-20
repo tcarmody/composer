@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DraftsView: View {
     @StateObject private var model: DraftsModel
+    @EnvironmentObject private var app: AppState
 
     init(api: APIClient) {
         _model = StateObject(wrappedValue: DraftsModel(api: api))
@@ -24,6 +25,17 @@ struct DraftsView: View {
             if case .idle = model.listState {
                 model.refreshList()
             }
+            consumePending()
         }
+        .onChange(of: app.pendingDraftSelection) { _, _ in
+            consumePending()
+        }
+    }
+
+    private func consumePending() {
+        guard let id = app.pendingDraftSelection else { return }
+        app.pendingDraftSelection = nil
+        model.refreshList()
+        model.select(id)
     }
 }

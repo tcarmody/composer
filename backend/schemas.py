@@ -264,6 +264,13 @@ class CreateInlineNoteRequest(BaseModel):
     body: str = ""
 
 
+class CompileCollectionRequest(BaseModel):
+    """Compile a collection's members into a new draft."""
+
+    title: str | None = None
+    include_full_content: bool = False
+
+
 class OutlineItemPayload(BaseModel):
     id: str
     title: str | None

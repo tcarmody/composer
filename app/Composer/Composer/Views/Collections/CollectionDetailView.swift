@@ -2,8 +2,10 @@ import SwiftUI
 
 struct CollectionDetailView: View {
     @ObservedObject var model: CollectionsModel
+    @EnvironmentObject private var app: AppState
     @State private var showDeleteConfirm = false
     @State private var pendingDelete: Collection?
+    @State private var isCompiling = false
 
     var body: some View {
         switch model.detailState {
@@ -64,12 +66,29 @@ struct CollectionDetailView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Menu {
+                Button("Summaries only") { compile(full: false) }
+                Button("Include full content") { compile(full: true) }
+            } label: {
+                Label("Compile to Draft", systemImage: "doc.text")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .disabled(isCompiling || collection.memberCount == 0)
             Button("Delete", role: .destructive) {
                 pendingDelete = collection
                 showDeleteConfirm = true
             }
         }
         .padding(16)
+    }
+
+    private func compile(full: Bool) {
+        isCompiling = true
+        model.compileToDraft(includeFullContent: full) { draft in
+            isCompiling = false
+            app.openDraft(id: draft.id)
+        }
     }
 
     private var emptyState: some View {

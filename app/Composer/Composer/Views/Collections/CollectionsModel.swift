@@ -127,6 +127,21 @@ final class CollectionsModel: ObservableObject {
         }
     }
 
+    func compileToDraft(includeFullContent: Bool, onSuccess: @escaping (Draft) -> Void) {
+        guard let id = selectedId else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let draft = try await self.api.compileCollection(
+                    id: id, includeFullContent: includeFullContent
+                )
+                onSuccess(draft)
+            } catch {
+                self.detailState = .error(error.localizedDescription)
+            }
+        }
+    }
+
     func addInlineNote(body: String) {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let id = selectedId else { return }
