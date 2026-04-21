@@ -239,7 +239,8 @@ final class APIClient {
     func streamChat(
         query: String,
         sourceTypes: [String]?,
-        limit: Int = 8
+        limit: Int = 8,
+        history: [(role: String, content: String)] = []
     ) -> AsyncThrowingStream<ChatStreamEvent, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
@@ -256,6 +257,9 @@ final class APIClient {
                     }
                     var payload: [String: Any] = ["query": query, "limit": limit]
                     if let sourceTypes { payload["source_types"] = sourceTypes }
+                    if !history.isEmpty {
+                        payload["history"] = history.map { ["role": $0.role, "content": $0.content] }
+                    }
                     req.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
                     let (bytes, response) = try await session.bytes(for: req)
@@ -302,6 +306,36 @@ final class APIClient {
             }
             continuation.onTermination = { _ in task.cancel() }
         }
+    }
+
+    // MARK: - Admin
+
+    func reindex() async throws -> [String: Int] {
+        let body = try JSONSerialization.data(withJSONObject: [String: Any]())
+        guard let url = URL(string: "/v1/admin/reindex", relativeTo: baseURL) else {
+            throw APIError.invalidURL
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.httpBody = body
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let key = apiKey, !key.isEmpty {
+            req.setValue(key, forHTTPHeaderField: "X-API-Key")
+        }
+        let (data, response) = try await session.data(for: req)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.http(status: -1, body: "")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw APIError.http(
+                status: http.statusCode,
+                body: String(data: data, encoding: .utf8) ?? ""
+            )
+        }
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Int] else {
+            return [:]
+        }
+        return json
     }
 
     // MARK: - Core

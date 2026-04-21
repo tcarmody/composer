@@ -6,30 +6,41 @@ struct AskTranscriptView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if model.lastQuery.isEmpty {
+                VStack(alignment: .leading, spacing: 20) {
+                    if model.turns.isEmpty {
                         EmptyStateView()
                     } else {
-                        QuestionBubble(text: model.lastQuery)
-                        AnswerBubble(
-                            text: model.answer,
-                            citations: model.citations,
-                            state: model.state,
-                            onCitationTap: { index in
-                                if let hit = model.citations.first(where: { $0.index == index }) {
-                                    model.selectedCitationId = hit.id
+                        ForEach(model.turns) { turn in
+                            TurnView(
+                                turn: turn,
+                                isFocused: model.focusedTurnId == turn.id
+                                    || (model.focusedTurnId == nil && turn.id == model.turns.last?.id),
+                                onCitationTap: { index in
+                                    model.focusTurn(turn.id)
+                                    if let hit = turn.citations.first(where: { $0.index == index }) {
+                                        model.selectedCitationId = hit.id
+                                    }
                                 }
-                            }
-                        )
-                        .id("answer")
+                            )
+                            .id(turn.id)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16)
             }
-            .onChange(of: model.answer) { _, _ in
+            .onChange(of: model.turns.last?.answer) { _, _ in
                 withAnimation(.linear(duration: 0.1)) {
-                    proxy.scrollTo("answer", anchor: .bottom)
+                    if let id = model.turns.last?.id {
+                        proxy.scrollTo(id, anchor: .bottom)
+                    }
+                }
+            }
+            .onChange(of: model.turns.count) { _, _ in
+                withAnimation(.easeOut(duration: 0.15)) {
+                    if let id = model.turns.last?.id {
+                        proxy.scrollTo(id, anchor: .bottom)
+                    }
                 }
             }
         }
@@ -52,6 +63,25 @@ private struct EmptyStateView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 80)
+    }
+}
+
+private struct TurnView: View {
+    let turn: AskModel.Turn
+    let isFocused: Bool
+    let onCitationTap: (Int) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            QuestionBubble(text: turn.question)
+            AnswerBubble(
+                text: turn.answer,
+                citations: turn.citations,
+                state: turn.state,
+                onCitationTap: onCitationTap
+            )
+        }
+        .opacity(isFocused ? 1.0 : 0.85)
     }
 }
 

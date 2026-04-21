@@ -42,6 +42,7 @@ async def chat(
         items_repo=items,
         notes_repo=notes,
         drafts_repo=drafts,
+        history=payload.history,
     )
     return StreamingResponse(
         generator,

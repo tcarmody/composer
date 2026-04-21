@@ -390,7 +390,13 @@ class SearchResponse(BaseModel):
     vector_search_used: bool
 
 
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class ChatRequest(BaseModel):
     query: str
     source_types: list[SourceType] | None = None
     limit: int = Field(8, ge=1, le=20)
+    history: list[ChatMessage] = Field(default_factory=list)

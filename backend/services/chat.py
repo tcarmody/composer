@@ -28,6 +28,7 @@ from ..repositories.chunks import ChunksRepository
 from ..repositories.drafts import DraftsRepository
 from ..repositories.items import ItemRepository
 from ..repositories.notes import NotesRepository
+from ..schemas import ChatMessage
 from .search import hybrid_search
 
 logger = logging.getLogger(__name__)
@@ -96,6 +97,7 @@ async def stream_chat(
     items_repo: ItemRepository,
     notes_repo: NotesRepository,
     drafts_repo: DraftsRepository,
+    history: list[ChatMessage] | None = None,
 ) -> AsyncIterator[bytes]:
     if not config.ANTHROPIC_API_KEY:
         yield _sse("error", {"message": "ANTHROPIC_API_KEY is not configured on the server."})
@@ -139,11 +141,17 @@ async def stream_chat(
             "(No sources were retrieved from the archive for this question.)"
         )
 
+    messages: list[dict] = []
+    if history:
+        for m in history:
+            messages.append({"role": m.role, "content": m.content})
+    messages.append({"role": "user", "content": user_content})
+
     payload = {
         "model": config.LLM_MODEL or DEFAULT_MODEL,
         "max_tokens": MAX_TOKENS,
         "system": SYSTEM_PROMPT,
-        "messages": [{"role": "user", "content": user_content}],
+        "messages": messages,
         "stream": True,
     }
     headers = {
