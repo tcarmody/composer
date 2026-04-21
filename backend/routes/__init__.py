@@ -1,6 +1,7 @@
 """API route modules."""
 
 from .admin import router as admin_router
+from .chat import router as chat_router
 from .collections import router as collections_router
 from .drafts import router as drafts_router
 from .health import router as health_router
@@ -11,6 +12,7 @@ from .search import router as search_router
 
 __all__ = [
     "admin_router",
+    "chat_router",
     "collections_router",
     "drafts_router",
     "health_router",

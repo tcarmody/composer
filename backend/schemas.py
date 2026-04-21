@@ -388,3 +388,9 @@ class SearchResponse(BaseModel):
     query: str
     hits: list[SearchHit]
     vector_search_used: bool
+
+
+class ChatRequest(BaseModel):
+    query: str
+    source_types: list[SourceType] | None = None
+    limit: int = Field(8, ge=1, le=20)
