@@ -15,6 +15,8 @@ struct MainView: View {
                     NotesView(api: app.api)
                 case .drafts:
                     DraftsView(api: app.api)
+                case .ask:
+                    AskView(api: app.api)
                 }
             }
             .toolbar {

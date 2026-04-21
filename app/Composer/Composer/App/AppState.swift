@@ -59,6 +59,7 @@ enum NavTab: String, CaseIterable, Identifiable {
     case collections = "Collections"
     case notes = "Notes"
     case drafts = "Drafts"
+    case ask = "Ask"
 
     var id: String { rawValue }
 
@@ -68,6 +69,7 @@ enum NavTab: String, CaseIterable, Identifiable {
         case .collections: return "rectangle.stack"
         case .notes: return "note.text"
         case .drafts: return "doc.text"
+        case .ask: return "sparkle.magnifyingglass"
         }
     }
 }

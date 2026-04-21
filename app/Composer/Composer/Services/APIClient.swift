@@ -234,6 +234,76 @@ final class APIClient {
         return try await request("/collections/\(id)/compile", method: "POST", body: data)
     }
 
+    // MARK: - Chat (SSE)
+
+    func streamChat(
+        query: String,
+        sourceTypes: [String]?,
+        limit: Int = 8
+    ) -> AsyncThrowingStream<ChatStreamEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    guard let url = URL(string: "/v1/chat", relativeTo: baseURL) else {
+                        throw APIError.invalidURL
+                    }
+                    var req = URLRequest(url: url)
+                    req.httpMethod = "POST"
+                    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                    if let key = apiKey, !key.isEmpty {
+                        req.setValue(key, forHTTPHeaderField: "X-API-Key")
+                    }
+                    var payload: [String: Any] = ["query": query, "limit": limit]
+                    if let sourceTypes { payload["source_types"] = sourceTypes }
+                    req.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+                    let (bytes, response) = try await session.bytes(for: req)
+                    guard let http = response as? HTTPURLResponse else {
+                        throw APIError.http(status: -1, body: "")
+                    }
+                    if !(200..<300).contains(http.statusCode) {
+                        var body = ""
+                        for try await line in bytes.lines {
+                            body += line + "\n"
+                            if body.count > 500 { break }
+                        }
+                        throw APIError.http(status: http.statusCode, body: body)
+                    }
+
+                    var eventName: String?
+                    for try await line in bytes.lines {
+                        if line.isEmpty {
+                            eventName = nil
+                            continue
+                        }
+                        if line.hasPrefix("event:") {
+                            eventName = String(line.dropFirst("event:".count))
+                                .trimmingCharacters(in: .whitespaces)
+                        } else if line.hasPrefix("data:") {
+                            guard let name = eventName else { continue }
+                            let payload = String(line.dropFirst("data:".count))
+                                .trimmingCharacters(in: .whitespaces)
+                            guard
+                                let data = payload.data(using: .utf8),
+                                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                            else { continue }
+                            if let event = ChatStreamEvent.parse(name: name, json: json) {
+                                continuation.yield(event)
+                            }
+                        }
+                    }
+                    continuation.finish()
+                } catch is CancellationError {
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     // MARK: - Core
 
     private func urlEncode(_ s: String) -> String {
