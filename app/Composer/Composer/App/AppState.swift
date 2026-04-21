@@ -7,6 +7,8 @@ final class AppState: ObservableObject {
     @Published var selectedTab: NavTab = .library
     @Published var apiKey: String = KeychainService.shared.apiKey ?? ""
     @Published var pendingDraftSelection: String?
+    @Published var pendingItemSelection: String?
+    @Published var pendingNoteSelection: String?
 
     let api = APIClient()
 
@@ -26,6 +28,16 @@ final class AppState: ObservableObject {
     func openDraft(id: String) {
         pendingDraftSelection = id
         selectedTab = .drafts
+    }
+
+    func openItem(id: String) {
+        pendingItemSelection = id
+        selectedTab = .library
+    }
+
+    func openNote(id: String) {
+        pendingNoteSelection = id
+        selectedTab = .notes
     }
 
     func startHealthPolling() {

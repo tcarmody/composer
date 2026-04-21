@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LibraryView: View {
     @StateObject private var model: LibraryModel
+    @EnvironmentObject private var app: AppState
 
     init(api: APIClient) {
         _model = StateObject(wrappedValue: LibraryModel(api: api))
@@ -21,6 +22,17 @@ struct LibraryView: View {
             if case .idle = model.listState {
                 model.refreshList()
             }
+            consumePending()
         }
+        .onChange(of: app.pendingItemSelection) { _, _ in
+            consumePending()
+        }
+    }
+
+    private func consumePending() {
+        guard let id = app.pendingItemSelection else { return }
+        app.pendingItemSelection = nil
+        model.refreshList()
+        model.select(id)
     }
 }

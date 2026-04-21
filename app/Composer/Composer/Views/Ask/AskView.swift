@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AskView: View {
     @StateObject private var model: AskModel
+    @EnvironmentObject private var app: AppState
 
     init(api: APIClient) {
         _model = StateObject(wrappedValue: AskModel(api: api))
@@ -16,12 +17,21 @@ struct AskView: View {
             }
             .frame(minWidth: 420)
 
-            AskCitationsView(model: model)
+            AskCitationsView(model: model, onOpenSource: openSource)
                 .frame(minWidth: 260, idealWidth: 320)
         }
         .focusedSceneValue(\.refreshAction, RefreshAction {
             model.reset()
         })
+    }
+
+    private func openSource(_ citation: Citation) {
+        switch citation.sourceType {
+        case "item": app.openItem(id: citation.sourceId)
+        case "note": app.openNote(id: citation.sourceId)
+        case "draft": app.openDraft(id: citation.sourceId)
+        default: break
+        }
     }
 }
 

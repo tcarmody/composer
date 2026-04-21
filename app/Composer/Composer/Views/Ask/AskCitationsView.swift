@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AskCitationsView: View {
     @ObservedObject var model: AskModel
+    let onOpenSource: (Citation) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -26,7 +27,7 @@ struct AskCitationsView: View {
                 emptyState
             } else {
                 List(model.citations, selection: $model.selectedCitationId) { citation in
-                    CitationRow(citation: citation)
+                    CitationRow(citation: citation, onOpen: { onOpenSource(citation) })
                         .tag(citation.id)
                 }
                 .listStyle(.sidebar)
@@ -72,6 +73,7 @@ struct AskCitationsView: View {
 
 private struct CitationRow: View {
     let citation: Citation
+    let onOpen: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -85,6 +87,13 @@ private struct CitationRow: View {
                 Text(citation.sourceTitle ?? "Untitled")
                     .font(.callout.weight(.semibold))
                     .lineLimit(2)
+                Spacer(minLength: 4)
+                Button(action: onOpen) {
+                    Image(systemName: "arrow.up.right.square")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .help("Open source")
             }
             Text(citation.snippet)
                 .font(.caption)

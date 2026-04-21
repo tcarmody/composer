@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NotesView: View {
     @StateObject private var model: NotesModel
+    @EnvironmentObject private var app: AppState
 
     init(api: APIClient) {
         _model = StateObject(wrappedValue: NotesModel(api: api))
@@ -24,6 +25,17 @@ struct NotesView: View {
             if case .idle = model.listState {
                 model.refreshList()
             }
+            consumePending()
         }
+        .onChange(of: app.pendingNoteSelection) { _, _ in
+            consumePending()
+        }
+    }
+
+    private func consumePending() {
+        guard let id = app.pendingNoteSelection else { return }
+        app.pendingNoteSelection = nil
+        model.refreshList()
+        model.select(id)
     }
 }
