@@ -22,6 +22,48 @@ struct SettingsView: View {
                 LabeledContent("Status") {
                     HealthBadge(status: app.health)
                 }
+                LabeledContent("Process") {
+                    Text(app.supervisor.status.shortLabel)
+                        .foregroundStyle(processStatusColor)
+                }
+                LabeledContent("Project root") {
+                    Text(app.supervisor.projectRootPath)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                HStack {
+                    Button("Start") {
+                        Task { await app.supervisor.start() }
+                    }
+                    .disabled(!canStart)
+                    Button("Stop") {
+                        app.supervisor.stop()
+                    }
+                    .disabled(!canStop)
+                    Button("Restart") {
+                        app.supervisor.restart()
+                    }
+                    .disabled(app.supervisor.status == .starting)
+                }
+                if case .failed(let msg) = app.supervisor.status {
+                    Label(msg, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+                if !app.supervisor.recentLog.isEmpty {
+                    ScrollView {
+                        Text(app.supervisor.recentLog)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(6)
+                    }
+                    .frame(height: 120)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .cornerRadius(4)
+                }
             }
 
             Section("API Key") {
@@ -62,8 +104,30 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 380)
+        .frame(width: 520, height: 640)
         .onAppear { draftKey = app.apiKey }
+    }
+
+    private var canStart: Bool {
+        switch app.supervisor.status {
+        case .stopped, .failed: return true
+        default: return false
+        }
+    }
+
+    private var canStop: Bool {
+        if case .running = app.supervisor.status { return true }
+        return false
+    }
+
+    private var processStatusColor: Color {
+        switch app.supervisor.status {
+        case .running: return .green
+        case .externallyManaged: return .blue
+        case .starting: return .secondary
+        case .stopped: return .secondary
+        case .failed: return .red
+        }
     }
 
     @ViewBuilder

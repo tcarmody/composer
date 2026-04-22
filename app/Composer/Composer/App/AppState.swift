@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SwiftUI
 
@@ -11,11 +12,20 @@ final class AppState: ObservableObject {
     @Published var pendingNoteSelection: String?
 
     let api = APIClient()
+    let supervisor = BackendSupervisor()
 
     private var healthPollTask: Task<Void, Never>?
+    private var cancellables: Set<AnyCancellable> = []
 
     init() {
         api.apiKey = apiKey.isEmpty ? nil : apiKey
+        supervisor.objectWillChange
+            .sink { [weak self] in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+        Task { [weak self] in
+            await self?.supervisor.start()
+            await self?.refreshHealth()
+        }
         startHealthPolling()
     }
 
