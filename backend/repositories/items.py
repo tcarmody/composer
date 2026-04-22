@@ -1,9 +1,10 @@
 """
 Items repository.
 
-Immutable-ish snapshot records. Once ingested, the content/summary/etc
-are not overwritten on re-ingest (idempotent). Users can PATCH the
-archive state, but the body of the snapshot is frozen.
+Snapshot records keyed on (source, source_ref). Re-ingesting the same
+(source, source_ref) refreshes content/summary/etc in place — id,
+promoted_at, and archived_at are preserved so links and archive state
+survive a refresh.
 """
 
 import json
@@ -90,10 +91,11 @@ class ItemRepository:
         metadata: dict[str, Any] | None,
     ) -> tuple[Item, bool]:
         """
-        Idempotent insert keyed on (source, source_ref).
+        Upsert keyed on (source, source_ref).
 
         Returns (item, created). If the row already existed, created=False
-        and the existing row is returned unchanged.
+        and the existing row has been updated in place (id, promoted_at,
+        and archived_at preserved).
         """
         with self.db.conn() as conn:
             if source_ref:
@@ -102,7 +104,29 @@ class ItemRepository:
                     (source, source_ref),
                 ).fetchone()
                 if existing:
-                    return _row_to_item(existing), False
+                    conn.execute(
+                        """
+                        UPDATE items SET
+                            url = ?, title = ?, author = ?,
+                            published_at = ?, content = ?, summary = ?,
+                            key_points = ?, keywords = ?,
+                            related_links = ?, metadata = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            url, title, author,
+                            published_at, content, summary,
+                            json.dumps(key_points or []),
+                            json.dumps(keywords or []),
+                            json.dumps(related_links or []),
+                            json.dumps(metadata or {}),
+                            existing["id"],
+                        ),
+                    )
+                    row = conn.execute(
+                        "SELECT * FROM items WHERE id = ?", (existing["id"],)
+                    ).fetchone()
+                    return _row_to_item(row), False
 
             item_id = f"cmp-item-{uuid.uuid4().hex[:12]}"
             conn.execute(

@@ -108,6 +108,22 @@ struct ItemDetailView: View {
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 Spacer()
+                if item.source == "datapoints" {
+                    Button {
+                        model.refreshFromSource(item)
+                    } label: {
+                        if model.isRefreshing {
+                            HStack(spacing: 6) {
+                                ProgressView().controlSize(.small)
+                                Text("Refreshing…")
+                            }
+                        } else {
+                            Label("Refresh", systemImage: "arrow.clockwise")
+                        }
+                    }
+                    .disabled(model.isRefreshing)
+                    .help("Re-fetch latest content from DataPoints")
+                }
                 Button(item.isArchived ? "Unarchive" : "Archive") {
                     model.toggleArchive(item)
                 }
@@ -135,6 +151,11 @@ struct ItemDetailView: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
+            if let err = model.refreshError {
+                Label(err, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
         }
     }
 

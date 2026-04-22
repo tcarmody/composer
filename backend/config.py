@@ -49,6 +49,9 @@ class Config:
     PORT: int = int(os.getenv("PORT", "5006"))
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
+    DATAPOINTS_URL: str = os.getenv("DATAPOINTS_URL", "http://127.0.0.1:5005")
+    DATAPOINTS_API_KEY: str = os.getenv("DATAPOINTS_API_KEY", "")
+
     CORS_ORIGINS: list[str] = [
         o.strip() for o in os.getenv(
             "CORS_ORIGINS",

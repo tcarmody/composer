@@ -48,8 +48,7 @@ async def ingest_item(
         related_links=[rl.model_dump() for rl in payload.related_links],
         metadata=payload.metadata,
     )
-    if created:
-        asyncio.create_task(index_item(item))
+    asyncio.create_task(index_item(item))
     return IngestItemResponse(
         id=item.id,
         url=_item_url(item.id),
@@ -87,9 +86,9 @@ async def ingest_items_batch(
                 already_existed=not was_created,
             )
         )
+        asyncio.create_task(index_item(item))
         if was_created:
             created += 1
-            asyncio.create_task(index_item(item))
         else:
             skipped += 1
     return IngestBatchResponse(items=results, created=created, skipped=skipped)

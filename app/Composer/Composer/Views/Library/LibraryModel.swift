@@ -22,6 +22,8 @@ final class LibraryModel: ObservableObject {
     @Published var selectedId: String?
     @Published var listState: ListState = .idle
     @Published var detailState: DetailState = .empty
+    @Published var isRefreshing: Bool = false
+    @Published var refreshError: String?
 
     private let api: APIClient
     private var searchTask: Task<Void, Never>?
@@ -113,6 +115,23 @@ final class LibraryModel: ObservableObject {
                 self.refreshList()
             } catch {
                 self.detailState = .error(error.localizedDescription)
+            }
+        }
+    }
+
+    func refreshFromSource(_ item: Item) {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        refreshError = nil
+        Task { [weak self] in
+            guard let self else { return }
+            defer { self.isRefreshing = false }
+            do {
+                let updated = try await self.api.refreshItem(id: item.id)
+                self.detailState = .loaded(updated)
+                self.refreshList()
+            } catch {
+                self.refreshError = error.localizedDescription
             }
         }
     }

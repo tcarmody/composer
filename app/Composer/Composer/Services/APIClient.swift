@@ -89,6 +89,11 @@ final class APIClient {
         let _: EmptyResponse = try await request("/items/\(id)", method: "DELETE", allow204: true)
     }
 
+    func refreshItem(id: String) async throws -> Item {
+        let body = try JSONSerialization.data(withJSONObject: [String: Any]())
+        return try await request("/items/\(id)/refresh", method: "POST", body: body)
+    }
+
     // MARK: - Notes
 
     func listNotes(limit: Int = 100, offset: Int = 0) async throws -> NoteListResponse {

@@ -17,6 +17,7 @@ from ..schemas import (
     ItemResponse,
     ItemSummaryResponse,
 )
+from ..services.datapoints import DataPointsError, refresh_from_datapoints
 from ..services.indexer import deindex, index_item
 
 router = APIRouter(
@@ -85,3 +86,43 @@ async def delete_item(
     if not ok:
         raise HTTPException(status_code=404, detail="Item not found")
     deindex("item", item_id)
+
+
+@router.post("/{item_id}/refresh", response_model=ItemResponse)
+async def refresh_item(
+    item_id: str,
+    items: ItemRepository = Depends(get_items_repo),
+) -> ItemResponse:
+    """
+    Ask the upstream source to re-promote this item.
+
+    Only supported for items sourced from DataPoints. DataPoints will call
+    back into /v1/ingest/items, which upserts the row in place; we then
+    re-read the item and return the refreshed record.
+    """
+    item = items.get(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if item.source != "datapoints":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Refresh not supported for source '{item.source}'",
+        )
+    if not item.source_ref:
+        raise HTTPException(
+            status_code=400,
+            detail="Item has no source_ref; cannot refresh",
+        )
+
+    try:
+        await refresh_from_datapoints(item.source_ref)
+    except DataPointsError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    refreshed = items.get(item_id)
+    if not refreshed:
+        raise HTTPException(
+            status_code=500,
+            detail="Item disappeared during refresh",
+        )
+    return ItemResponse.from_item(refreshed)
