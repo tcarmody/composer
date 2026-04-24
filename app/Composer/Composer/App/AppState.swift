@@ -50,6 +50,25 @@ final class AppState: ObservableObject {
         selectedTab = .notes
     }
 
+    func quoteAs(kind: QuoteKind, selection: String, source: QuoteSource) {
+        let body = QuotePrefill.build(selection: selection, source: source)
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                switch kind {
+                case .note:
+                    let note = try await self.api.createNote(body: body)
+                    self.openNote(id: note.id)
+                case .draft:
+                    let draft = try await self.api.createDraft(body: body)
+                    self.openDraft(id: draft.id)
+                }
+            } catch {
+                print("quoteAs failed: \(error)")
+            }
+        }
+    }
+
     func startHealthPolling() {
         healthPollTask?.cancel()
         healthPollTask = Task { [weak self] in

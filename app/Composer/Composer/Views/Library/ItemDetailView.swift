@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ItemDetailView: View {
     @ObservedObject var model: LibraryModel
+    @EnvironmentObject private var app: AppState
     @State private var showDeleteConfirm = false
     @State private var pendingDelete: Item?
 
@@ -43,7 +44,9 @@ struct ItemDetailView: View {
                 header(item)
                 if let summary = item.summary, !summary.isEmpty {
                     section("Summary") {
-                        RichContentView(content: summary)
+                        RichContentView(content: summary) { kind, text in
+                            app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
+                        }
                     }
                 }
                 if !item.keyPoints.isEmpty {
@@ -72,7 +75,9 @@ struct ItemDetailView: View {
                 }
                 if let content = item.content, !content.isEmpty {
                     section("Full text") {
-                        RichContentView(content: content)
+                        RichContentView(content: content) { kind, text in
+                            app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
+                        }
                     }
                 }
                 if !item.relatedLinks.isEmpty {
