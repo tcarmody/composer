@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { getHealth } from './lib/api'
 import { Library } from './components/Library'
 import { Collections } from './components/Collections'
+import { Notes } from './components/Notes'
 import { cn } from './lib/utils'
 
-type View = 'library' | 'collections'
+type View = 'library' | 'collections' | 'notes'
 
 function HealthBadge() {
   const { data, isError } = useQuery({
@@ -59,6 +60,17 @@ export default function App() {
               >
                 Collections
               </button>
+              <button
+                onClick={() => setView('notes')}
+                className={cn(
+                  'transition-colors',
+                  view === 'notes'
+                    ? 'text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                Notes
+              </button>
               <span className="text-muted-foreground">Ask</span>
               <span className="text-muted-foreground">Publish</span>
             </nav>
@@ -68,7 +80,9 @@ export default function App() {
           </div>
         </div>
       </header>
-      {view === 'library' ? <Library /> : <Collections />}
+      {view === 'library' && <Library />}
+      {view === 'collections' && <Collections />}
+      {view === 'notes' && <Notes />}
     </div>
   )
 }
