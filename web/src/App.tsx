@@ -4,9 +4,10 @@ import { getHealth } from './lib/api'
 import { Library } from './components/Library'
 import { Collections } from './components/Collections'
 import { Notes } from './components/Notes'
+import { Ask } from './components/Ask'
 import { cn } from './lib/utils'
 
-type View = 'library' | 'collections' | 'notes'
+type View = 'library' | 'collections' | 'notes' | 'ask'
 
 function HealthBadge() {
   const { data, isError } = useQuery({
@@ -71,7 +72,17 @@ export default function App() {
               >
                 Notes
               </button>
-              <span className="text-muted-foreground">Ask</span>
+              <button
+                onClick={() => setView('ask')}
+                className={cn(
+                  'transition-colors',
+                  view === 'ask'
+                    ? 'text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                Ask
+              </button>
               <span className="text-muted-foreground">Publish</span>
             </nav>
           </div>
@@ -83,6 +94,7 @@ export default function App() {
       {view === 'library' && <Library />}
       {view === 'collections' && <Collections />}
       {view === 'notes' && <Notes />}
+      {view === 'ask' && <Ask />}
     </div>
   )
 }

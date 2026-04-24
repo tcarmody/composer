@@ -213,3 +213,136 @@ export const reorderCollection = (
   id: string,
   members: Array<[MemberType, string]>
 ) => api.post<Outline>(`/collections/${id}/reorder`, { members })
+
+// ─── chat ─────────────────────────────────────────────
+
+export type ChatSourceType = 'item' | 'note' | 'draft'
+
+export interface Citation {
+  index: number
+  chunk_id: string
+  source_type: string
+  source_id: string
+  source_title: string | null
+  source_url: string | null
+  chunk_index: number
+  snippet: string
+}
+
+export type ChatStreamEvent =
+  | { type: 'citations'; citations: Citation[]; vector_search_used: boolean }
+  | { type: 'delta'; text: string }
+  | { type: 'done'; stop_reason: string | null }
+  | { type: 'error'; message: string }
+
+export interface ChatHistoryMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface StreamChatParams {
+  query: string
+  sourceTypes?: ChatSourceType[] | null
+  limit?: number
+  history?: ChatHistoryMessage[]
+  signal?: AbortSignal
+}
+
+export async function* streamChat(
+  params: StreamChatParams
+): AsyncGenerator<ChatStreamEvent> {
+  const headers = new Headers({
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+  })
+  if (API_KEY) headers.set('X-API-Key', API_KEY)
+
+  const body: Record<string, unknown> = {
+    query: params.query,
+    limit: params.limit ?? 8,
+  }
+  if (params.sourceTypes && params.sourceTypes.length > 0) {
+    body.source_types = params.sourceTypes
+  }
+  if (params.history && params.history.length > 0) {
+    body.history = params.history
+  }
+
+  const res = await fetch('/api/v1/chat', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: params.signal,
+  })
+
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => res.statusText)
+    throw new ApiError(res.status, text || res.statusText)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      // SSE records are separated by a blank line (\n\n)
+      let sep = buffer.indexOf('\n\n')
+      while (sep >= 0) {
+        const record = buffer.slice(0, sep)
+        buffer = buffer.slice(sep + 2)
+        const event = parseSseRecord(record)
+        if (event) yield event
+        sep = buffer.indexOf('\n\n')
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+function parseSseRecord(record: string): ChatStreamEvent | null {
+  let name: string | null = null
+  let data = ''
+  for (const raw of record.split('\n')) {
+    const line = raw.replace(/\r$/, '')
+    if (line.startsWith('event:')) {
+      name = line.slice('event:'.length).trim()
+    } else if (line.startsWith('data:')) {
+      const chunk = line.slice('data:'.length).trim()
+      data = data ? `${data}\n${chunk}` : chunk
+    }
+  }
+  if (!name || !data) return null
+  let json: Record<string, unknown>
+  try {
+    json = JSON.parse(data)
+  } catch {
+    return null
+  }
+  switch (name) {
+    case 'citations':
+      return {
+        type: 'citations',
+        citations: (json.citations as Citation[]) ?? [],
+        vector_search_used: Boolean(json.vector_search_used),
+      }
+    case 'delta':
+      return { type: 'delta', text: (json.text as string) ?? '' }
+    case 'done':
+      return {
+        type: 'done',
+        stop_reason: (json.stop_reason as string | null) ?? null,
+      }
+    case 'error':
+      return {
+        type: 'error',
+        message: (json.message as string) ?? 'Unknown error',
+      }
+    default:
+      return null
+  }
+}
