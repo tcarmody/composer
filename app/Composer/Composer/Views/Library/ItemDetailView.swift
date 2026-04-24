@@ -55,11 +55,12 @@ struct ItemDetailView: View {
                             ForEach(Array(item.keyPoints.enumerated()), id: \.offset) { _, kp in
                                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                                     Text("•").foregroundStyle(.secondary)
-                                    Text(kp)
+                                    RichContentView(content: kp) { kind, text in
+                                        app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
+                                    }
                                 }
                             }
                         }
-                        .font(.body)
                     }
                 }
                 if !item.keywords.isEmpty {
