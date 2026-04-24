@@ -43,7 +43,7 @@ struct ItemDetailView: View {
                 header(item)
                 if let summary = item.summary, !summary.isEmpty {
                     section("Summary") {
-                        Text(summary).font(.body)
+                        RichContentView(content: summary)
                     }
                 }
                 if !item.keyPoints.isEmpty {
@@ -72,10 +72,7 @@ struct ItemDetailView: View {
                 }
                 if let content = item.content, !content.isEmpty {
                     section("Full text") {
-                        Text(content)
-                            .font(.body)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        RichContentView(content: content)
                     }
                 }
                 if !item.relatedLinks.isEmpty {

@@ -173,9 +173,7 @@ private struct OutlineNodeRow: View {
                 if let title = note.title, !title.isEmpty {
                     Text(title).font(.system(size: 13, weight: .medium))
                 }
-                Text(note.body)
-                    .font(.body)
-                    .textSelection(.enabled)
+                RichContentView(content: note.body)
             }
         } else {
             Text("Unknown member").font(.caption).foregroundStyle(.secondary)
