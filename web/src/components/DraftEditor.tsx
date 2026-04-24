@@ -12,11 +12,12 @@ import { cn } from '../lib/utils'
 interface Props {
   draftId: string | null
   onDeleted: () => void
+  focusRequest?: number
 }
 
 const AUTOSAVE_DELAY_MS = 1200
 
-export function DraftEditor({ draftId, onDeleted }: Props) {
+export function DraftEditor({ draftId, onDeleted, focusRequest }: Props) {
   const qc = useQueryClient()
 
   const { data, isLoading, isError, error } = useQuery({
@@ -36,6 +37,8 @@ export function DraftEditor({ draftId, onDeleted }: Props) {
     status: DraftStatus
   } | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const lastFocusHandledRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     if (!data) {
@@ -112,6 +115,18 @@ export function DraftEditor({ draftId, onDeleted }: Props) {
     }
   }, [])
 
+  useEffect(() => {
+    if (focusRequest === undefined) return
+    if (lastFocusHandledRef.current === focusRequest) return
+    if (!data || data.id !== draftId) return
+    const el = textareaRef.current
+    if (!el) return
+    lastFocusHandledRef.current = focusRequest
+    el.focus()
+    const end = el.value.length
+    el.setSelectionRange(end, end)
+  }, [focusRequest, data, draftId])
+
   if (!draftId) {
     return (
       <div className="p-8 text-sm text-muted-foreground">
@@ -173,6 +188,7 @@ export function DraftEditor({ draftId, onDeleted }: Props) {
         </div>
       </header>
       <textarea
+        ref={textareaRef}
         value={body}
         onChange={(e) => setBody(e.target.value)}
         placeholder="Start writing in markdown…"

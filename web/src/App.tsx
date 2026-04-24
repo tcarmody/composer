@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useCallback, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getHealth } from './lib/api'
 import { Library } from './components/Library'
 import { Collections } from './components/Collections'
 import { Notes } from './components/Notes'
 import { Ask } from './components/Ask'
 import { Drafts } from './components/Drafts'
+import type { QuoteKind } from './components/ItemDetail'
 import { cn } from './lib/utils'
 
 type View = 'library' | 'collections' | 'notes' | 'ask' | 'publish'
@@ -32,6 +33,28 @@ function HealthBadge() {
 
 export default function App() {
   const [view, setView] = useState<View>('library')
+  const [notesSelectedId, setNotesSelectedId] = useState<string | null>(null)
+  const [draftsSelectedId, setDraftsSelectedId] = useState<string | null>(null)
+  const [notesFocusNonce, setNotesFocusNonce] = useState(0)
+  const [draftsFocusNonce, setDraftsFocusNonce] = useState(0)
+  const qc = useQueryClient()
+
+  const onQuoteCreated = useCallback(
+    (kind: QuoteKind, id: string) => {
+      if (kind === 'note') {
+        qc.invalidateQueries({ queryKey: ['notes'] })
+        setNotesSelectedId(id)
+        setView('notes')
+        setNotesFocusNonce((n) => n + 1)
+      } else {
+        qc.invalidateQueries({ queryKey: ['drafts'] })
+        setDraftsSelectedId(id)
+        setView('publish')
+        setDraftsFocusNonce((n) => n + 1)
+      }
+    },
+    [qc]
+  )
 
   return (
     <div className="h-screen flex flex-col">
@@ -102,11 +125,23 @@ export default function App() {
           </div>
         </div>
       </header>
-      {view === 'library' && <Library />}
+      {view === 'library' && <Library onQuoteCreated={onQuoteCreated} />}
       {view === 'collections' && <Collections />}
-      {view === 'notes' && <Notes />}
+      {view === 'notes' && (
+        <Notes
+          selectedId={notesSelectedId}
+          onSelect={setNotesSelectedId}
+          focusRequest={notesFocusNonce}
+        />
+      )}
       {view === 'ask' && <Ask />}
-      {view === 'publish' && <Drafts />}
+      {view === 'publish' && (
+        <Drafts
+          selectedId={draftsSelectedId}
+          onSelect={setDraftsSelectedId}
+          focusRequest={draftsFocusNonce}
+        />
+      )}
     </div>
   )
 }

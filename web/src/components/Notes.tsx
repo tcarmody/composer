@@ -1,19 +1,23 @@
-import { useState } from 'react'
 import { NotesList } from './NotesList'
 import { NoteEditor } from './NoteEditor'
 
-export function Notes() {
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+interface Props {
+  selectedId: string | null
+  onSelect: (id: string | null) => void
+  focusRequest?: number
+}
 
+export function Notes({ selectedId, onSelect, focusRequest }: Props) {
   return (
     <div className="flex h-[calc(100vh-65px)]">
       <aside className="w-[320px] border-r flex flex-col">
-        <NotesList selectedId={selectedId} onSelect={setSelectedId} />
+        <NotesList selectedId={selectedId} onSelect={onSelect} />
       </aside>
       <main className="flex-1 overflow-hidden flex">
         <NoteEditor
           noteId={selectedId}
-          onDeleted={() => setSelectedId(null)}
+          onDeleted={() => onSelect(null)}
+          focusRequest={focusRequest}
         />
       </main>
     </div>

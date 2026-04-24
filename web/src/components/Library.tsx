@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import { ItemList } from './ItemList'
-import { ItemDetail } from './ItemDetail'
+import { ItemDetail, type QuoteKind } from './ItemDetail'
 import { cn } from '../lib/utils'
 
-export function Library() {
+interface Props {
+  onQuoteCreated?: (kind: QuoteKind, id: string) => void
+}
+
+export function Library({ onQuoteCreated }: Props) {
   const [query, setQuery] = useState('')
   const [archived, setArchived] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -50,7 +54,7 @@ export function Library() {
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto">
-        <ItemDetail itemId={selectedId} />
+        <ItemDetail itemId={selectedId} onQuoteCreated={onQuoteCreated} />
       </main>
     </div>
   )

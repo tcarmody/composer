@@ -5,11 +5,12 @@ import { deleteNote, getNote, patchNote } from '../lib/api'
 interface Props {
   noteId: string | null
   onDeleted: () => void
+  focusRequest?: number
 }
 
 const AUTOSAVE_DELAY_MS = 1200
 
-export function NoteEditor({ noteId, onDeleted }: Props) {
+export function NoteEditor({ noteId, onDeleted, focusRequest }: Props) {
   const qc = useQueryClient()
 
   const { data, isLoading, isError, error } = useQuery({
@@ -25,6 +26,8 @@ export function NoteEditor({ noteId, onDeleted }: Props) {
     null
   )
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const lastFocusHandledRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     if (!data) {
@@ -90,6 +93,18 @@ export function NoteEditor({ noteId, onDeleted }: Props) {
     }
   }, [])
 
+  useEffect(() => {
+    if (focusRequest === undefined) return
+    if (lastFocusHandledRef.current === focusRequest) return
+    if (!data || data.id !== noteId) return
+    const el = textareaRef.current
+    if (!el) return
+    lastFocusHandledRef.current = focusRequest
+    el.focus()
+    const end = el.value.length
+    el.setSelectionRange(end, end)
+  }, [focusRequest, data, noteId])
+
   if (!noteId) {
     return (
       <div className="p-8 text-sm text-muted-foreground">
@@ -140,25 +155,14 @@ export function NoteEditor({ noteId, onDeleted }: Props) {
           </button>
         </div>
       </header>
-      <NoteBody value={body} onChange={setBody} />
+      <textarea
+        ref={textareaRef}
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        placeholder="Start writing in markdown…"
+        className="flex-1 w-full p-6 text-sm font-mono leading-relaxed bg-transparent resize-none focus:outline-none"
+      />
     </div>
-  )
-}
-
-function NoteBody({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (v: string) => void
-}) {
-  return (
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="Start writing in markdown…"
-      className="flex-1 w-full p-6 text-sm font-mono leading-relaxed bg-transparent resize-none focus:outline-none"
-    />
   )
 }
 
