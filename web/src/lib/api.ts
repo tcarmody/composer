@@ -134,6 +134,46 @@ export const patchNote = (
 
 export const deleteNote = (id: string) => api.delete<void>(`/notes/${id}`)
 
+// ─── drafts ───────────────────────────────────────────
+
+export type DraftStatus = 'wip' | 'final'
+
+export interface Draft {
+  id: string
+  title: string | null
+  body: string
+  status: DraftStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface DraftList {
+  drafts: Draft[]
+  total: number
+}
+
+export const listDrafts = (limit = 100, offset = 0) =>
+  api.get<DraftList>(`/drafts?limit=${limit}&offset=${offset}`)
+
+export const getDraft = (id: string) => api.get<Draft>(`/drafts/${id}`)
+
+export const createDraft = (body: {
+  title?: string | null
+  body?: string
+  status?: DraftStatus
+}) => api.post<Draft>('/drafts', body)
+
+export const patchDraft = (
+  id: string,
+  body: {
+    title?: string | null
+    body?: string
+    status?: DraftStatus
+  }
+) => api.patch<Draft>(`/drafts/${id}`, body)
+
+export const deleteDraft = (id: string) => api.delete<void>(`/drafts/${id}`)
+
 // ─── collections ──────────────────────────────────────
 
 export type MemberType = 'item' | 'note' | 'draft'
