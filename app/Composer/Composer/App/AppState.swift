@@ -10,14 +10,17 @@ final class AppState: ObservableObject {
     @Published var pendingDraftSelection: String?
     @Published var pendingItemSelection: String?
     @Published var pendingNoteSelection: String?
+    @Published var isDraftPanelVisible: Bool = true
 
     let api = APIClient()
     let supervisor = BackendSupervisor()
+    let draftsModel: DraftsModel
 
     private var healthPollTask: Task<Void, Never>?
     private var cancellables: Set<AnyCancellable> = []
 
     init() {
+        self.draftsModel = DraftsModel(api: api)
         api.apiKey = apiKey.isEmpty ? nil : apiKey
         supervisor.objectWillChange
             .sink { [weak self] in self?.objectWillChange.send() }
@@ -61,12 +64,22 @@ final class AppState: ObservableObject {
                     self.openNote(id: note.id)
                 case .draft:
                     let draft = try await self.api.createDraft(body: body)
-                    self.openDraft(id: draft.id)
+                    self.loadDraftInPanel(id: draft.id)
                 }
             } catch {
                 print("quoteAs failed: \(error)")
             }
         }
+    }
+
+    func loadDraftInPanel(id: String) {
+        isDraftPanelVisible = true
+        draftsModel.refreshList()
+        draftsModel.select(id)
+    }
+
+    func toggleDraftPanel() {
+        isDraftPanelVisible.toggle()
     }
 
     func startHealthPolling() {

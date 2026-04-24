@@ -32,6 +32,12 @@ struct AppCommands: Commands {
             }
             .keyboardShortcut("r", modifiers: .command)
             .disabled(refreshAction == nil)
+            Divider()
+            Button(appState.isDraftPanelVisible ? "Hide Draft Panel" : "Show Draft Panel") {
+                appState.toggleDraftPanel()
+            }
+            .keyboardShortcut("d", modifiers: [.command, .option])
+            .disabled(appState.selectedTab == .drafts)
         }
     }
 }

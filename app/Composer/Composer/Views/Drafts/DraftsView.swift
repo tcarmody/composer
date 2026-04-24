@@ -1,14 +1,12 @@
 import SwiftUI
 
 struct DraftsView: View {
-    @StateObject private var model: DraftsModel
     @EnvironmentObject private var app: AppState
 
-    init(api: APIClient) {
-        _model = StateObject(wrappedValue: DraftsModel(api: api))
-    }
+    init(api: APIClient) {}
 
     var body: some View {
+        let model = app.draftsModel
         NavigationSplitView {
             DraftsListView(model: model)
                 .navigationSplitViewColumnWidth(min: 260, ideal: 300)
@@ -35,7 +33,7 @@ struct DraftsView: View {
     private func consumePending() {
         guard let id = app.pendingDraftSelection else { return }
         app.pendingDraftSelection = nil
-        model.refreshList()
-        model.select(id)
+        app.draftsModel.refreshList()
+        app.draftsModel.select(id)
     }
 }
