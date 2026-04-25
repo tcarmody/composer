@@ -10,7 +10,9 @@ final class AppState: ObservableObject {
     @Published var pendingDraftSelection: String?
     @Published var pendingItemSelection: String?
     @Published var pendingNoteSelection: String?
-    @Published var isDraftPanelVisible: Bool = true
+    @Published var isDraftPanelVisible: Bool = UserDefaults.standard.bool(forKey: "isDraftPanelVisible") {
+        didSet { UserDefaults.standard.set(isDraftPanelVisible, forKey: "isDraftPanelVisible") }
+    }
 
     let api = APIClient()
     let supervisor = BackendSupervisor()

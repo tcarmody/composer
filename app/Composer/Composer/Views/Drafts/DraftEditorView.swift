@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct DraftEditorView: View {
     @ObservedObject var model: DraftsModel
+    var isCompact: Bool = false
     @StateObject private var commands = RichTextCommandsHolder()
     @State private var showLinkSheet = false
     @State private var linkURLDraft = ""
@@ -75,7 +76,16 @@ struct DraftEditorView: View {
         }
     }
 
+    @ViewBuilder
     private func titleBar(draft: Draft) -> some View {
+        if isCompact {
+            compactTitleBar(draft: draft)
+        } else {
+            fullTitleBar(draft: draft)
+        }
+    }
+
+    private func fullTitleBar(draft: Draft) -> some View {
         HStack(spacing: 12) {
             TextField("Untitled", text: $model.titleDraft, onEditingChanged: { _ in model.titleChanged() })
                 .textFieldStyle(.plain)
@@ -118,6 +128,52 @@ struct DraftEditorView: View {
             Button("Delete", role: .destructive) { showDeleteConfirm = true }
         }
         .padding(16)
+    }
+
+    private func compactTitleBar(draft: Draft) -> some View {
+        HStack(spacing: 8) {
+            TextField("Untitled", text: $model.titleDraft, onEditingChanged: { _ in model.titleChanged() })
+                .textFieldStyle(.plain)
+                .font(.headline)
+            Circle()
+                .fill(model.isDirty ? Color.orange : Color.clear)
+                .frame(width: 6, height: 6)
+                .help(model.isDirty ? "Unsaved changes" : "Saved")
+            Picker("", selection: Binding(
+                get: { model.statusDraft },
+                set: { model.statusDraft = $0; model.statusChanged() }
+            )) {
+                ForEach(DraftStatus.allCases, id: \.self) { s in
+                    Text(s.label).tag(s)
+                }
+            }
+            .pickerStyle(.segmented)
+            .fixedSize()
+            Menu {
+                Section("Assist") {
+                    ForEach(DraftAssistAction.allCases, id: \.self) { action in
+                        Button(action.label) { runAssist(action) }
+                    }
+                }
+                Section("Export") {
+                    Button("Markdown (.md)") { exportMarkdown(draft: draft) }
+                    Button("HTML (.html)") { exportHTML(draft: draft) }
+                    Button("Copy HTML to Clipboard") { copyHTML(draft: draft) }
+                }
+                Section {
+                    Button("Save", action: { model.save() })
+                        .keyboardShortcut("s", modifiers: .command)
+                        .disabled(!model.isDirty)
+                    Button("Delete", role: .destructive) { showDeleteConfirm = true }
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     private func filename(for draft: Draft, ext: String) -> String {

@@ -61,7 +61,7 @@ struct DraftSidePanelView: View {
         case .empty:
             emptyState
         default:
-            DraftEditorView(model: model)
+            DraftEditorView(model: model, isCompact: true)
         }
     }
 
