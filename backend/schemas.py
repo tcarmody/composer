@@ -18,6 +18,7 @@ class HealthResponse(BaseModel):
     schema_version: int
     auth_enabled: bool
     ingest_auth_enabled: bool
+    commit: str = "unknown"
 
 
 class RelatedLink(BaseModel):

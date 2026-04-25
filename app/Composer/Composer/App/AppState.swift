@@ -10,6 +10,7 @@ final class AppState: ObservableObject {
     @Published var pendingDraftSelection: String?
     @Published var pendingItemSelection: String?
     @Published var pendingNoteSelection: String?
+    @Published var backendStale: Bool = false
     @Published var isDraftPanelVisible: Bool = UserDefaults.standard.bool(forKey: "isDraftPanelVisible") {
         didSet { UserDefaults.standard.set(isDraftPanelVisible, forKey: "isDraftPanelVisible") }
     }
@@ -20,6 +21,7 @@ final class AppState: ObservableObject {
 
     private var healthPollTask: Task<Void, Never>?
     private var cancellables: Set<AnyCancellable> = []
+    private var expectedCommit: String?
 
     init() {
         self.draftsModel = DraftsModel(api: api)
@@ -98,10 +100,41 @@ final class AppState: ObservableObject {
         do {
             let resp = try await api.health()
             health = .ok(version: resp.version, schemaVersion: resp.schemaVersion)
+            await checkStale(against: resp.commit)
         } catch {
             health = .unreachable(error.localizedDescription)
         }
     }
+
+    private func checkStale(against backendCommit: String?) async {
+        if expectedCommit == nil {
+            expectedCommit = await readLocalCommit(repo: supervisor.projectRootPath)
+        }
+        guard let expected = expectedCommit, !expected.isEmpty,
+              let actual = backendCommit, !actual.isEmpty,
+              actual != "unknown" else {
+            backendStale = false
+            return
+        }
+        backendStale = (expected != actual)
+    }
+}
+
+private func readLocalCommit(repo: String) async -> String? {
+    await Task.detached {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        proc.arguments = ["-C", repo, "rev-parse", "--short", "HEAD"]
+        let out = Pipe()
+        proc.standardOutput = out
+        proc.standardError = Pipe()
+        do { try proc.run() } catch { return nil }
+        proc.waitUntilExit()
+        guard proc.terminationStatus == 0 else { return nil }
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        let s = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (s?.isEmpty == false) ? s : nil
+    }.value
 }
 
 enum HealthStatus: Equatable {

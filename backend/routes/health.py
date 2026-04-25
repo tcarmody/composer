@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from ..config import config, state
 from ..schemas import HealthResponse
+from ..version import BACKEND_COMMIT
 
 router = APIRouter(tags=["health"])
 
@@ -16,4 +17,5 @@ async def health_check() -> HealthResponse:
         schema_version=state.db.version() if state.db else 0,
         auth_enabled=bool(config.AUTH_API_KEY),
         ingest_auth_enabled=bool(config.INGEST_API_KEY),
+        commit=BACKEND_COMMIT,
     )

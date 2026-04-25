@@ -6,10 +6,12 @@ struct HealthResponse: Decodable {
     let schemaVersion: Int
     let authEnabled: Bool
     let ingestAuthEnabled: Bool
+    let commit: String?
 
     enum CodingKeys: String, CodingKey {
         case status
         case version
+        case commit
         case schemaVersion = "schema_version"
         case authEnabled = "auth_enabled"
         case ingestAuthEnabled = "ingest_auth_enabled"

@@ -132,10 +132,39 @@ final class BackendSupervisor: ObservableObject, @unchecked Sendable {
 
     func restart() {
         Task {
-            stop()
+            if case .externallyManaged = status {
+                await killExternalBackend()
+                await setStatus(.stopped)
+            } else {
+                stop()
+            }
             try? await Task.sleep(for: .seconds(1))
             await start()
         }
+    }
+
+    private func killExternalBackend() async {
+        let pid = await Task.detached { () -> Int32? in
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+            proc.arguments = ["-ti", ":5006"]
+            let out = Pipe()
+            proc.standardOutput = out
+            proc.standardError = Pipe()
+            do { try proc.run() } catch { return nil }
+            proc.waitUntilExit()
+            let data = out.fileHandleForReading.readDataToEndOfFile()
+            let s = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let s, let first = s.split(separator: "\n").first else { return nil }
+            return Int32(first)
+        }.value
+        guard let pid else { return }
+        kill(pid, SIGTERM)
+        for _ in 0..<20 {
+            try? await Task.sleep(for: .milliseconds(100))
+            if !(await probeHealthy()) { return }
+        }
+        kill(pid, SIGKILL)
     }
 
     @objc private func handleAppTerminate(_ notification: Notification) {

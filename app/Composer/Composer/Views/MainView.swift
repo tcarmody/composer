@@ -9,6 +9,35 @@ struct MainView: View {
     }
 
     var body: some View {
+        VStack(spacing: 0) {
+            if app.backendStale {
+                staleBanner
+            }
+            mainSplit
+        }
+        .onChange(of: app.selectedTab) { _, _ in
+            if app.draftsModel.isDirty { app.draftsModel.save() }
+        }
+    }
+
+    private var staleBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text("Backend is running older code than this app. Restart it to pick up the latest.")
+                .font(.callout)
+            Spacer()
+            Button("Restart Backend") {
+                app.supervisor.restart()
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.yellow.opacity(0.25))
+    }
+
+    private var mainSplit: some View {
         HSplitView {
             NavigationStack {
                 Group {
@@ -62,9 +91,6 @@ struct MainView: View {
                         }
                     )
             }
-        }
-        .onChange(of: app.selectedTab) { _, _ in
-            if app.draftsModel.isDirty { app.draftsModel.save() }
         }
     }
 }
