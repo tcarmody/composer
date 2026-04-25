@@ -63,6 +63,9 @@ struct MainView: View {
                     )
             }
         }
+        .onChange(of: app.selectedTab) { _, _ in
+            if app.draftsModel.isDirty { app.draftsModel.save() }
+        }
     }
 }
 
