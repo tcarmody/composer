@@ -26,7 +26,7 @@ struct MainView: View {
                     }
                 }
                 .toolbar {
-                    ToolbarItem(placement: .navigation) {
+                    ToolbarItem(placement: .principal) {
                         Picker("Tab", selection: $app.selectedTab) {
                             ForEach(NavTab.allCases) { tab in
                                 Label(tab.rawValue, systemImage: tab.systemImage).tag(tab)
@@ -37,14 +37,14 @@ struct MainView: View {
                     ToolbarItem(placement: .primaryAction) {
                         HealthBadge(status: app.health)
                     }
-                    if app.selectedTab != .drafts {
+                    if app.selectedTab != .drafts && !app.isDraftPanelVisible {
                         ToolbarItem(placement: .primaryAction) {
                             Button {
                                 app.toggleDraftPanel()
                             } label: {
-                                Image(systemName: app.isDraftPanelVisible ? "sidebar.right" : "sidebar.squares.right")
+                                Image(systemName: "sidebar.squares.right")
                             }
-                            .help(app.isDraftPanelVisible ? "Hide Draft Panel (⌥⌘D)" : "Show Draft Panel (⌥⌘D)")
+                            .help("Show Draft Panel (⌥⌘D)")
                         }
                     }
                 }
