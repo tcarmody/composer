@@ -23,10 +23,18 @@ struct DraftSidePanelView: View {
             Text("Draft").font(.headline)
 
             if case .loaded(let drafts) = model.listState, !drafts.isEmpty {
+                let sorted = sortedDrafts(drafts)
+                let recent = Array(sorted.prefix(10))
                 Menu {
-                    ForEach(sortedDrafts(drafts)) { d in
+                    ForEach(recent) { d in
                         Button { model.select(d.id) } label: {
                             Text(title(for: d))
+                        }
+                    }
+                    if sorted.count > recent.count {
+                        Divider()
+                        Button("Show all in Drafts tab…") {
+                            app.selectedTab = .drafts
                         }
                     }
                 } label: {
