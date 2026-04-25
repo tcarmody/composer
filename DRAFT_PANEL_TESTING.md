@@ -45,6 +45,11 @@ want it wider to compose, some narrower to read.
 - **Fix to explore:** `HSplitView` with persisted divider position in
   `AppState` (or `@AppStorage`).
 
+**Status:** Addressed in `f6c1ab4`. Outer container is now `HSplitView`;
+panel width persists via `@AppStorage("draftPanelWidth")`. Bounds widened
+to 320–800 with main content min 480. Still worth exercising drag at
+window-min width and after toggling the panel.
+
 ## 4. ⌥⌘D toggle
 
 - **Try:** press ⌥⌘D from each tab. From Drafts tab too.
@@ -135,6 +140,10 @@ At 50, 200, 500 drafts, the chevron menu becomes unusable as a switcher.
 - **Fix to explore:** the cap-and-spillover from §9, or a search field in
   the menu.
 
+**Status:** Addressed in `fd20a32`. Menu caps at 10 most-recent drafts
+with a "Show all in Drafts tab…" footer when more exist. Search-in-menu
+is still open if 10 turns out to be the wrong cutoff.
+
 ## 11. Tab switching with unsaved edits
 
 Autosave debounces at 1.2s. Switch tabs faster than that and the editor
@@ -147,6 +156,11 @@ still fire from the background `Task`.
   show stale text.
 - **Fix to explore:** if autosave gets dropped, force-save in
   `MainView.onChange(of: app.selectedTab)`.
+
+**Status:** Addressed defensively in `6f5f961`. `MainView` now calls
+`draftsModel.save()` on tab change when `isDirty`. Belt-and-suspenders
+on top of the existing background autosave Task; still worth confirming
+the race actually closes under <1.2s switches.
 
 ## 12. Two views, one model
 
@@ -272,7 +286,10 @@ Drag the window edge while the cursor is in the panel editor.
 ## Suggested test order
 
 1. §1, §2, §5, §19 — visual sanity, 5 minutes.
-2. §8, §9, §11 — core workflow, 15 minutes.
+2. §8, §9, §11 — core workflow, 15 minutes. (§11 has a fix landed; verify
+   it actually closes the race.)
 3. §6, §7, §17 — first-impression and onboarding, fresh DB.
 4. §13, §14, §15, §20 — keyboard and a11y nits.
-5. Defer §3, §10, §16, §18, §21 unless something breaks during 1–4.
+5. §3, §10 — fixes landed; exercise drag/resize and the 10+ drafts
+   spillover.
+6. Defer §16, §18, §21 unless something breaks during 1–5.
