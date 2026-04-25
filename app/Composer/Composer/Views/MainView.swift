@@ -2,13 +2,14 @@ import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject private var app: AppState
+    @AppStorage("draftPanelWidth") private var draftPanelWidth: Double = 420
 
     private var panelVisible: Bool {
         app.isDraftPanelVisible && app.selectedTab != .drafts
     }
 
     var body: some View {
-        HStack(spacing: 0) {
+        HSplitView {
             NavigationStack {
                 Group {
                     switch app.selectedTab {
@@ -48,11 +49,18 @@ struct MainView: View {
                     }
                 }
             }
+            .frame(minWidth: 480)
 
             if panelVisible {
-                Divider()
                 DraftSidePanelView(model: app.draftsModel)
-                    .frame(minWidth: 360, idealWidth: 420, maxWidth: 560)
+                    .frame(minWidth: 320, idealWidth: draftPanelWidth, maxWidth: 800)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.onChange(of: geo.size.width) { _, newValue in
+                                if newValue > 0 { draftPanelWidth = newValue }
+                            }
+                        }
+                    )
             }
         }
     }
