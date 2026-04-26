@@ -21,7 +21,12 @@ final class AppState: ObservableObject {
         didSet { UserDefaults.standard.set(listDensity.rawValue, forKey: "listDensity") }
     }
     @Published var typeface: AppTypeface = AppearanceDefaults.loadTypeface() {
-        didSet { UserDefaults.standard.set(typeface.rawValue, forKey: "appTypeface") }
+        didSet {
+            UserDefaults.standard.set(typeface.rawValue, forKey: "appTypeface")
+            Typography.currentTypeface = typeface
+            draftsModel.reloadEditorTypeface()
+            // NotesModel reload is on-demand via re-selection.
+        }
     }
 
     let api = APIClient()
@@ -34,6 +39,7 @@ final class AppState: ObservableObject {
 
     init() {
         self.draftsModel = DraftsModel(api: api)
+        Typography.currentTypeface = AppearanceDefaults.loadTypeface()
         api.apiKey = apiKey.isEmpty ? nil : apiKey
         supervisor.objectWillChange
             .sink { [weak self] in self?.objectWillChange.send() }

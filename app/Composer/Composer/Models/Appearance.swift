@@ -188,6 +188,31 @@ enum AppTypeface: String, Codable, CaseIterable, Identifiable, Sendable {
         }
         return .system(size: size)
     }
+
+    func nsFont(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        switch self {
+        case .system:
+            return .systemFont(ofSize: size, weight: weight)
+        case .sfMono:
+            return .monospacedSystemFont(ofSize: size, weight: weight)
+        case .newYork:
+            return Self.resolve(family: "New York", size: size, weight: weight)
+        default:
+            if let family = fontFamily {
+                return Self.resolve(family: family, size: size, weight: weight)
+            }
+            return .systemFont(ofSize: size, weight: weight)
+        }
+    }
+
+    private static func resolve(family: String, size: CGFloat, weight: NSFont.Weight) -> NSFont {
+        let descriptor = NSFontDescriptor(fontAttributes: [.family: family])
+        let base = NSFont(descriptor: descriptor, size: size) ?? .systemFont(ofSize: size, weight: weight)
+        if weight.rawValue >= NSFont.Weight.semibold.rawValue {
+            return NSFontManager.shared.convert(base, toHaveTrait: .boldFontMask)
+        }
+        return base
+    }
 }
 
 enum AppearanceDefaults {

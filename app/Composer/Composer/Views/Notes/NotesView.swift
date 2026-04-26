@@ -30,6 +30,9 @@ struct NotesView: View {
         .onChange(of: app.pendingNoteSelection) { _, _ in
             consumePending()
         }
+        .onChange(of: app.typeface) { _, _ in
+            model.reloadEditorTypeface()
+        }
     }
 
     private func consumePending() {

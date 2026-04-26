@@ -124,6 +124,14 @@ final class NotesModel: ObservableObject {
         Task { [weak self] in await self?.saveNow() }
     }
 
+    func reloadEditorTypeface() {
+        guard case .editing(let note, _, let original) = editorState else { return }
+        let markdown = MarkdownConverter.markdown(from: editorAttributed)
+        let attributed = MarkdownConverter.attributedString(from: markdown)
+        editorAttributed = attributed
+        editorState = .editing(note, attributed, original)
+    }
+
     private func saveNow() async {
         guard case .editing(let note, _, _) = editorState else { return }
         let markdown = MarkdownConverter.markdown(from: editorAttributed)

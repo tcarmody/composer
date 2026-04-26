@@ -23,16 +23,18 @@ enum Typography {
     static let heading2Size: CGFloat = 21
     static let heading3Size: CGFloat = 17
 
+    static var currentTypeface: AppTypeface = .system
+
     static func font(for kind: ParagraphKind) -> NSFont {
         switch kind {
         case .body, .bullet, .numbered, .blockquote:
-            return .systemFont(ofSize: bodySize)
+            return currentTypeface.nsFont(size: bodySize)
         case .heading1:
-            return .systemFont(ofSize: heading1Size, weight: .semibold)
+            return currentTypeface.nsFont(size: heading1Size, weight: .semibold)
         case .heading2:
-            return .systemFont(ofSize: heading2Size, weight: .semibold)
+            return currentTypeface.nsFont(size: heading2Size, weight: .semibold)
         case .heading3:
-            return .systemFont(ofSize: heading3Size, weight: .semibold)
+            return currentTypeface.nsFont(size: heading3Size, weight: .semibold)
         case .codeBlock:
             return .monospacedSystemFont(ofSize: bodySize, weight: .regular)
         }
