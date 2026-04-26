@@ -14,6 +14,15 @@ final class AppState: ObservableObject {
     @Published var isDraftPanelVisible: Bool = UserDefaults.standard.bool(forKey: "isDraftPanelVisible") {
         didSet { UserDefaults.standard.set(isDraftPanelVisible, forKey: "isDraftPanelVisible") }
     }
+    @Published var theme: AppTheme = AppearanceDefaults.loadTheme() {
+        didSet { UserDefaults.standard.set(theme.rawValue, forKey: "appTheme") }
+    }
+    @Published var listDensity: ListDensity = AppearanceDefaults.loadDensity() {
+        didSet { UserDefaults.standard.set(listDensity.rawValue, forKey: "listDensity") }
+    }
+    @Published var typeface: AppTypeface = AppearanceDefaults.loadTypeface() {
+        didSet { UserDefaults.standard.set(typeface.rawValue, forKey: "appTypeface") }
+    }
 
     let api = APIClient()
     let supervisor = BackendSupervisor()

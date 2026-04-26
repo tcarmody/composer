@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DraftsListView: View {
     @ObservedObject var model: DraftsModel
+    @EnvironmentObject private var app: AppState
 
     var body: some View {
         VStack(spacing: 0) {
@@ -47,7 +48,7 @@ struct DraftsListView: View {
                     set: { model.select($0) }
                 )) {
                     ForEach(drafts) { draft in
-                        DraftRow(draft: draft).tag(draft.id)
+                        DraftRow(draft: draft, density: app.listDensity).tag(draft.id)
                     }
                 }
                 .listStyle(.inset)
@@ -58,6 +59,7 @@ struct DraftsListView: View {
 
 private struct DraftRow: View {
     let draft: Draft
+    let density: ListDensity
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -68,7 +70,7 @@ private struct DraftRow: View {
                 Spacer(minLength: 4)
                 StatusBadge(status: draft.status)
             }
-            if !previewBody.isEmpty {
+            if density.showSummaryPreview, !previewBody.isEmpty {
                 Text(previewBody)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -78,7 +80,7 @@ private struct DraftRow: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, density.verticalPadding)
     }
 
     private var displayTitle: String {

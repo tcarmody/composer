@@ -100,6 +100,10 @@ struct ItemDetailView: View {
             .frame(maxWidth: 760, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(app.theme.backgroundColor)
+        .foregroundStyle(app.theme.textColor, app.theme.secondaryTextColor)
+        .tint(app.theme.accentColor)
+        .font(app.typeface.font(size: 14))
     }
 
     @ViewBuilder

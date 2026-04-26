@@ -83,6 +83,30 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Appearance") {
+                Picker("Theme", selection: $app.theme) {
+                    ForEach(AppTheme.allCases) { t in
+                        Text(t.label).tag(t)
+                    }
+                }
+                Text(app.theme.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Picker("List density", selection: $app.listDensity) {
+                    ForEach(ListDensity.allCases) { d in
+                        Text(d.label).tag(d)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Picker("Typeface", selection: $app.typeface) {
+                    ForEach(AppTypeface.allCases) { f in
+                        Text(f.label).tag(f)
+                    }
+                }
+            }
+
             Section("Index") {
                 HStack {
                     Button {

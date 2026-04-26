@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ItemListView: View {
     @ObservedObject var model: LibraryModel
+    @EnvironmentObject private var app: AppState
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,7 +53,7 @@ struct ItemListView: View {
                 )) {
                     Section {
                         ForEach(response.items) { item in
-                            ItemRowView(item: item)
+                            ItemRowView(item: item, density: app.listDensity)
                                 .tag(item.id)
                         }
                     } header: {
@@ -78,6 +79,7 @@ struct ItemListView: View {
 
 private struct ItemRowView: View {
     let item: ItemSummary
+    let density: ListDensity
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -95,14 +97,14 @@ private struct ItemRowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            if let summary = item.summary, !summary.isEmpty {
+            if density.showSummaryPreview, let summary = item.summary, !summary.isEmpty {
                 Text(summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, density.verticalPadding)
     }
 }
 

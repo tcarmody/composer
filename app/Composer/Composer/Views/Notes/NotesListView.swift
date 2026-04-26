@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NotesListView: View {
     @ObservedObject var model: NotesModel
+    @EnvironmentObject private var app: AppState
 
     var body: some View {
         VStack(spacing: 0) {
@@ -47,7 +48,7 @@ struct NotesListView: View {
                     set: { model.select($0) }
                 )) {
                     ForEach(notes) { note in
-                        NoteRow(note: note).tag(note.id)
+                        NoteRow(note: note, density: app.listDensity).tag(note.id)
                     }
                 }
                 .listStyle(.inset)
@@ -58,13 +59,14 @@ struct NotesListView: View {
 
 private struct NoteRow: View {
     let note: Note
+    let density: ListDensity
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(displayTitle)
                 .font(.system(size: 13, weight: .medium))
                 .lineLimit(1)
-            if !previewBody.isEmpty {
+            if density.showSummaryPreview, !previewBody.isEmpty {
                 Text(previewBody)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -74,7 +76,7 @@ private struct NoteRow: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, density.verticalPadding)
     }
 
     private var displayTitle: String {

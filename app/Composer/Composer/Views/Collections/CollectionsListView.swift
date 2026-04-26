@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CollectionsListView: View {
     @ObservedObject var model: CollectionsModel
+    @EnvironmentObject private var app: AppState
     @Binding var externalShowNew: Bool
     @State private var isCreating = false
     @State private var newName = ""
@@ -80,7 +81,7 @@ struct CollectionsListView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        .padding(.vertical, 2)
+                        .padding(.vertical, app.listDensity.verticalPadding)
                         .tag(c.id)
                     }
                 }
