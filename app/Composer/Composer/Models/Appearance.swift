@@ -83,6 +83,20 @@ enum AppTheme: String, Codable, CaseIterable, Identifiable, Sendable {
         case .midnight: return Color(red: 0.984, green: 0.749, blue: 0.141)
         }
     }
+
+    /// Subtly distinct from `backgroundColor`. Used for editor title bars
+    /// and formatting toolbars so they read as chrome rather than body.
+    var chromeBackground: Color {
+        switch self {
+        case .auto: return Color(NSColor.controlBackgroundColor)
+        case .manuscript: return Color(red: 0.937, green: 0.918, blue: 0.871)
+        case .noir: return Color(red: 0.094, green: 0.094, blue: 0.094)
+        case .ember: return Color(red: 0.149, green: 0.133, blue: 0.122)
+        case .forest: return Color(red: 0.902, green: 0.925, blue: 0.910)
+        case .ocean: return Color(red: 0.918, green: 0.937, blue: 0.957)
+        case .midnight: return Color(red: 0.071, green: 0.098, blue: 0.169)
+        }
+    }
 }
 
 enum ListDensity: String, Codable, CaseIterable, Identifiable, Sendable {

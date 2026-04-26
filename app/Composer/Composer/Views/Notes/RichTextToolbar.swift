@@ -10,6 +10,7 @@ struct RichTextToolbar: View {
     let onQuote: () -> Void
     let onBody: () -> Void
     let onLink: () -> Void
+    @EnvironmentObject private var app: AppState
 
     var body: some View {
         HStack(spacing: 4) {
@@ -71,5 +72,6 @@ struct RichTextToolbar: View {
         .buttonStyle(.borderless)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
+        .background(app.theme.chromeBackground)
     }
 }

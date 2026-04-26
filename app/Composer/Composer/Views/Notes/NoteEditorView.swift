@@ -82,6 +82,7 @@ struct NoteEditorView: View {
             Button("Delete", role: .destructive) { showDeleteConfirm = true }
         }
         .padding(16)
+        .background(app.theme.chromeBackground)
     }
 
     private var linkSheet: some View {

@@ -132,6 +132,7 @@ struct DraftEditorView: View {
             Button("Delete", role: .destructive) { showDeleteConfirm = true }
         }
         .padding(16)
+        .background(app.theme.chromeBackground)
     }
 
     private func compactTitleBar(draft: Draft) -> some View {
@@ -178,6 +179,7 @@ struct DraftEditorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .background(app.theme.chromeBackground)
     }
 
     private func filename(for draft: Draft, ext: String) -> String {
