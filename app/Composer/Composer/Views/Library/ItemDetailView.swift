@@ -44,7 +44,7 @@ struct ItemDetailView: View {
                 header(item)
                 if let summary = item.summary, !summary.isEmpty {
                     section("Summary") {
-                        RichContentView(content: summary) { kind, text in
+                        RichContentView(content: summary, theme: app.theme) { kind, text in
                             app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
                         }
                     }
@@ -55,7 +55,7 @@ struct ItemDetailView: View {
                             ForEach(Array(item.keyPoints.enumerated()), id: \.offset) { _, kp in
                                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                                     Text("•").foregroundStyle(.secondary)
-                                    RichContentView(content: kp) { kind, text in
+                                    RichContentView(content: kp, theme: app.theme) { kind, text in
                                         app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
                                     }
                                 }
@@ -76,7 +76,7 @@ struct ItemDetailView: View {
                 }
                 if let content = item.content, !content.isEmpty {
                     section("Full text") {
-                        RichContentView(content: content) { kind, text in
+                        RichContentView(content: content, theme: app.theme) { kind, text in
                             app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
                         }
                     }

@@ -122,6 +122,7 @@ struct CollectionDetailView: View {
 private struct OutlineNodeRow: View {
     let node: OutlineNode
     let onRemove: () -> Void
+    @EnvironmentObject private var app: AppState
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -173,7 +174,7 @@ private struct OutlineNodeRow: View {
                 if let title = note.title, !title.isEmpty {
                     Text(title).font(.system(size: 13, weight: .medium))
                 }
-                RichContentView(content: note.body)
+                RichContentView(content: note.body, theme: app.theme)
             }
         } else {
             Text("Unknown member").font(.caption).foregroundStyle(.secondary)

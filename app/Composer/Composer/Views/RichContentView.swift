@@ -3,6 +3,7 @@ import SwiftUI
 
 struct RichContentView: NSViewRepresentable {
     let content: String
+    var theme: AppTheme = .auto
     var onQuote: ((QuoteKind, String) -> Void)? = nil
 
     func makeNSView(context: Context) -> IntrinsicTextView {
@@ -17,32 +18,57 @@ struct RichContentView: NSViewRepresentable {
         tv.isVerticallyResizable = true
         tv.isHorizontallyResizable = false
         tv.autoresizingMask = [.width]
-        tv.linkTextAttributes = [
-            .foregroundColor: NSColor.linkColor,
-            .cursor: NSCursor.pointingHand,
-        ]
         tv.onQuote = onQuote
+        applyTheme(to: tv)
         render(into: tv)
         return tv
     }
 
     func updateNSView(_ tv: IntrinsicTextView, context: Context) {
         tv.onQuote = onQuote
-        if tv.lastRenderedContent != content {
+        let themeChanged = tv.lastRenderedTheme != theme
+        if themeChanged {
+            applyTheme(to: tv)
+        }
+        if tv.lastRenderedContent != content || themeChanged {
             render(into: tv)
         }
     }
 
+    private func applyTheme(to tv: IntrinsicTextView) {
+        tv.textColor = NSColor(theme.textColor)
+        tv.linkTextAttributes = [
+            .foregroundColor: NSColor(theme.accentColor),
+            .cursor: NSCursor.pointingHand,
+        ]
+    }
+
     private func render(into tv: IntrinsicTextView) {
         let attr = RichContentRenderer.render(content)
+            .applying(textColor: NSColor(theme.textColor))
         tv.textStorage?.setAttributedString(attr)
         tv.lastRenderedContent = content
+        tv.lastRenderedTheme = theme
         tv.invalidateIntrinsicContentSize()
+    }
+}
+
+private extension NSAttributedString {
+    func applying(textColor: NSColor) -> NSAttributedString {
+        let mut = NSMutableAttributedString(attributedString: self)
+        let full = NSRange(location: 0, length: mut.length)
+        mut.enumerateAttribute(.link, in: full, options: []) { link, range, _ in
+            guard link == nil else { return }
+            mut.removeAttribute(.foregroundColor, range: range)
+            mut.addAttribute(.foregroundColor, value: textColor, range: range)
+        }
+        return mut
     }
 }
 
 final class IntrinsicTextView: NSTextView {
     var lastRenderedContent: String?
+    var lastRenderedTheme: AppTheme?
     var onQuote: ((QuoteKind, String) -> Void)?
 
     override var intrinsicContentSize: NSSize {
