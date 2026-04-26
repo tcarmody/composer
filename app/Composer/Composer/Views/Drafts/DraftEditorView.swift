@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct DraftEditorView: View {
     @ObservedObject var model: DraftsModel
     var isCompact: Bool = false
+    @EnvironmentObject private var app: AppState
     @StateObject private var commands = RichTextCommandsHolder()
     @State private var showLinkSheet = false
     @State private var linkURLDraft = ""
@@ -71,9 +72,12 @@ struct DraftEditorView: View {
                 onLink: { showLinkSheet = true }
             )
             Divider()
-            RichTextEditorHosted(attributed: $model.editorAttributed, commands: commands)
+            RichTextEditorHosted(attributed: $model.editorAttributed, commands: commands, theme: app.theme)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .background(app.theme.backgroundColor)
+        .foregroundStyle(app.theme.textColor, app.theme.secondaryTextColor)
+        .tint(app.theme.accentColor)
     }
 
     @ViewBuilder

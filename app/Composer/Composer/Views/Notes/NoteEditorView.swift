@@ -3,6 +3,7 @@ import SwiftUI
 
 struct NoteEditorView: View {
     @ObservedObject var model: NotesModel
+    @EnvironmentObject private var app: AppState
     @StateObject private var commands = RichTextCommandsHolder()
     @State private var showLinkSheet = false
     @State private var linkURLDraft = ""
@@ -58,9 +59,12 @@ struct NoteEditorView: View {
                 onLink: { showLinkSheet = true }
             )
             Divider()
-            RichTextEditorHosted(attributed: $model.editorAttributed, commands: commands)
+            RichTextEditorHosted(attributed: $model.editorAttributed, commands: commands, theme: app.theme)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .background(app.theme.backgroundColor)
+        .foregroundStyle(app.theme.textColor, app.theme.secondaryTextColor)
+        .tint(app.theme.accentColor)
     }
 
     private func titleBar(note: Note) -> some View {
@@ -111,6 +115,7 @@ final class RichTextCommandsHolder: ObservableObject {
 struct RichTextEditorHosted: NSViewRepresentable {
     @Binding var attributed: NSAttributedString
     let commands: RichTextCommandsHolder
+    var theme: AppTheme = .auto
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSTextView.scrollableTextView()
@@ -129,12 +134,18 @@ struct RichTextEditorHosted: NSViewRepresentable {
         tv.delegate = context.coordinator
         context.coordinator.textView = tv
         commands.store.textView = tv
+        applyTheme(to: tv, scroll: scroll)
+        context.coordinator.lastTheme = theme
         return scroll
     }
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let tv = scroll.documentView as? NSTextView else { return }
         commands.store.textView = tv
+        if context.coordinator.lastTheme != theme {
+            applyTheme(to: tv, scroll: scroll)
+            context.coordinator.lastTheme = theme
+        }
         if context.coordinator.suppressExternal {
             context.coordinator.suppressExternal = false
             return
@@ -146,6 +157,20 @@ struct RichTextEditorHosted: NSViewRepresentable {
         }
     }
 
+    private func applyTheme(to tv: NSTextView, scroll: NSScrollView) {
+        let bg = NSColor(theme.backgroundColor)
+        let fg = NSColor(theme.textColor)
+        tv.textColor = fg
+        tv.backgroundColor = bg
+        tv.insertionPointColor = NSColor(theme.accentColor)
+        scroll.drawsBackground = true
+        scroll.backgroundColor = bg
+        tv.linkTextAttributes = [
+            .foregroundColor: NSColor(theme.accentColor),
+            .cursor: NSCursor.pointingHand,
+        ]
+    }
+
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
     }
@@ -154,6 +179,7 @@ struct RichTextEditorHosted: NSViewRepresentable {
         var parent: RichTextEditorHosted
         weak var textView: NSTextView?
         var suppressExternal = false
+        var lastTheme: AppTheme?
 
         init(parent: RichTextEditorHosted) {
             self.parent = parent
