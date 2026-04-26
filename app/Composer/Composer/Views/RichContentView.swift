@@ -4,6 +4,7 @@ import SwiftUI
 struct RichContentView: NSViewRepresentable {
     let content: String
     var theme: AppTheme = .auto
+    var hasCurrentDraft: Bool = false
     var onQuote: ((QuoteKind, String) -> Void)? = nil
 
     func makeNSView(context: Context) -> IntrinsicTextView {
@@ -19,6 +20,7 @@ struct RichContentView: NSViewRepresentable {
         tv.isHorizontallyResizable = false
         tv.autoresizingMask = [.width]
         tv.onQuote = onQuote
+        tv.hasCurrentDraft = hasCurrentDraft
         applyTheme(to: tv)
         render(into: tv)
         return tv
@@ -26,6 +28,7 @@ struct RichContentView: NSViewRepresentable {
 
     func updateNSView(_ tv: IntrinsicTextView, context: Context) {
         tv.onQuote = onQuote
+        tv.hasCurrentDraft = hasCurrentDraft
         let themeChanged = tv.lastRenderedTheme != theme
         if themeChanged {
             applyTheme(to: tv)
@@ -70,6 +73,7 @@ final class IntrinsicTextView: NSTextView {
     var lastRenderedContent: String?
     var lastRenderedTheme: AppTheme?
     var onQuote: ((QuoteKind, String) -> Void)?
+    var hasCurrentDraft: Bool = false
 
     override var intrinsicContentSize: NSSize {
         guard let lm = layoutManager, let tc = textContainer else {
@@ -93,21 +97,31 @@ final class IntrinsicTextView: NSTextView {
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = super.menu(for: event) ?? NSMenu()
         guard onQuote != nil, selectedRange().length > 0 else { return menu }
+        var idx = 0
+        if hasCurrentDraft {
+            let appendItem = NSMenuItem(
+                title: "Append to Current Draft",
+                action: #selector(appendToCurrentDraft(_:)),
+                keyEquivalent: ""
+            )
+            appendItem.target = self
+            menu.insertItem(appendItem, at: idx); idx += 1
+        }
         let noteItem = NSMenuItem(
             title: "Quote as Note",
             action: #selector(quoteAsNote(_:)),
             keyEquivalent: ""
         )
         noteItem.target = self
+        menu.insertItem(noteItem, at: idx); idx += 1
         let draftItem = NSMenuItem(
-            title: "Quote as Draft",
+            title: hasCurrentDraft ? "Quote as New Draft" : "Quote as Draft",
             action: #selector(quoteAsDraft(_:)),
             keyEquivalent: ""
         )
         draftItem.target = self
-        menu.insertItem(noteItem, at: 0)
-        menu.insertItem(draftItem, at: 1)
-        menu.insertItem(.separator(), at: 2)
+        menu.insertItem(draftItem, at: idx); idx += 1
+        menu.insertItem(.separator(), at: idx)
         return menu
     }
 
@@ -117,6 +131,10 @@ final class IntrinsicTextView: NSTextView {
 
     @objc private func quoteAsDraft(_ sender: Any?) {
         emitQuote(.draft)
+    }
+
+    @objc private func appendToCurrentDraft(_ sender: Any?) {
+        emitQuote(.appendToDraft)
     }
 
     private func emitQuote(_ kind: QuoteKind) {

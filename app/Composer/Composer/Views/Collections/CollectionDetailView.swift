@@ -174,7 +174,7 @@ private struct OutlineNodeRow: View {
                 if let title = note.title, !title.isEmpty {
                     Text(title).font(.system(size: 13, weight: .medium))
                 }
-                RichContentView(content: note.body, theme: app.theme)
+                RichContentView(content: note.body, theme: app.theme, hasCurrentDraft: app.hasCurrentDraft)
             }
         } else {
             Text("Unknown member").font(.caption).foregroundStyle(.secondary)

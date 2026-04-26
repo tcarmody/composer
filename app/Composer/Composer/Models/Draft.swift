@@ -60,3 +60,28 @@ enum DraftAssistAction: String, Codable, CaseIterable {
 struct DraftAssistResponse: Decodable {
     let suggestion: String
 }
+
+struct DraftSource: Decodable, Identifiable, Hashable {
+    let id: Int
+    let draftId: String
+    let itemId: String
+    let excerpt: String?
+    let addedAt: String
+    let itemTitle: String?
+    let itemAuthor: String?
+    let itemUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, excerpt
+        case draftId = "draft_id"
+        case itemId = "item_id"
+        case addedAt = "added_at"
+        case itemTitle = "item_title"
+        case itemAuthor = "item_author"
+        case itemUrl = "item_url"
+    }
+}
+
+struct DraftSourceListResponse: Decodable {
+    let sources: [DraftSource]
+}

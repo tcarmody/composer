@@ -26,6 +26,18 @@ class Draft:
     updated_at: str
 
 
+@dataclass
+class DraftSource:
+    id: int
+    draft_id: str
+    item_id: str
+    excerpt: str | None
+    added_at: str
+    item_title: str | None
+    item_author: str | None
+    item_url: str | None
+
+
 def _row_to_draft(row: sqlite3.Row) -> Draft:
     return Draft(
         id=row["id"],
@@ -114,4 +126,72 @@ class DraftsRepository:
     def delete(self, draft_id: str) -> bool:
         with self.db.conn() as conn:
             cur = conn.execute("DELETE FROM drafts WHERE id = ?", (draft_id,))
+            return cur.rowcount > 0
+
+    def append_body(
+        self,
+        draft_id: str,
+        *,
+        text: str,
+        item_id: str | None = None,
+        excerpt: str | None = None,
+    ) -> Draft | None:
+        """Append text to a draft's body, separated by a blank line, and
+        optionally record the source item that contributed the excerpt."""
+        with self.db.conn() as conn:
+            row = conn.execute(
+                "SELECT body FROM drafts WHERE id = ?", (draft_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            existing = row["body"] or ""
+            joiner = "" if existing == "" else ("\n\n" if not existing.endswith("\n\n") else "")
+            new_body = existing + joiner + text
+            conn.execute(
+                "UPDATE drafts SET body = ?, updated_at = datetime('now') WHERE id = ?",
+                (new_body, draft_id),
+            )
+            if item_id is not None:
+                conn.execute(
+                    "INSERT INTO draft_sources (draft_id, item_id, excerpt) VALUES (?, ?, ?)",
+                    (draft_id, item_id, excerpt),
+                )
+            updated = conn.execute(
+                "SELECT * FROM drafts WHERE id = ?", (draft_id,)
+            ).fetchone()
+            return _row_to_draft(updated) if updated else None
+
+    def list_sources(self, draft_id: str) -> list[DraftSource]:
+        with self.db.conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT ds.id, ds.draft_id, ds.item_id, ds.excerpt, ds.added_at,
+                       i.title AS item_title, i.author AS item_author, i.url AS item_url
+                  FROM draft_sources ds
+                  LEFT JOIN items i ON i.id = ds.item_id
+                 WHERE ds.draft_id = ?
+                 ORDER BY ds.added_at ASC
+                """,
+                (draft_id,),
+            ).fetchall()
+            return [
+                DraftSource(
+                    id=r["id"],
+                    draft_id=r["draft_id"],
+                    item_id=r["item_id"],
+                    excerpt=r["excerpt"],
+                    added_at=r["added_at"],
+                    item_title=r["item_title"],
+                    item_author=r["item_author"],
+                    item_url=r["item_url"],
+                )
+                for r in rows
+            ]
+
+    def remove_source(self, draft_id: str, source_id: int) -> bool:
+        with self.db.conn() as conn:
+            cur = conn.execute(
+                "DELETE FROM draft_sources WHERE draft_id = ? AND id = ?",
+                (draft_id, source_id),
+            )
             return cur.rowcount > 0

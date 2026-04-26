@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from .repositories.collections import Collection, OutlineNode
-from .repositories.drafts import Draft
+from .repositories.drafts import Draft, DraftSource
 from .repositories.items import Item
 from .repositories.notes import Note
 
@@ -212,6 +212,43 @@ class DraftResponse(BaseModel):
 class DraftListResponse(BaseModel):
     drafts: list[DraftResponse]
     total: int
+
+
+class DraftAppendRequest(BaseModel):
+    """Append text to a draft. Optionally records the source item that
+    contributed the excerpt so the draft can list its sources later."""
+
+    text: str
+    item_id: str | None = None
+    excerpt: str | None = None
+
+
+class DraftSourceResponse(BaseModel):
+    id: int
+    draft_id: str
+    item_id: str
+    excerpt: str | None
+    added_at: str
+    item_title: str | None
+    item_author: str | None
+    item_url: str | None
+
+    @classmethod
+    def from_source(cls, s: DraftSource) -> "DraftSourceResponse":
+        return cls(
+            id=s.id,
+            draft_id=s.draft_id,
+            item_id=s.item_id,
+            excerpt=s.excerpt,
+            added_at=s.added_at,
+            item_title=s.item_title,
+            item_author=s.item_author,
+            item_url=s.item_url,
+        )
+
+
+class DraftSourceListResponse(BaseModel):
+    sources: list[DraftSourceResponse]
 
 
 AssistAction = Literal["rewrite", "expand", "summarize", "tighten"]

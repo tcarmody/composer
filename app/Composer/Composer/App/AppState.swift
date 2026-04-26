@@ -84,11 +84,46 @@ final class AppState: ObservableObject {
                 case .draft:
                     let draft = try await self.api.createDraft(body: body)
                     self.loadDraftInPanel(id: draft.id)
+                case .appendToDraft:
+                    try await self.appendQuoteToCurrentDraft(
+                        body: body,
+                        selection: selection,
+                        source: source
+                    )
                 }
             } catch {
                 print("quoteAs failed: \(error)")
             }
         }
+    }
+
+    /// True when the side panel has a draft loaded that we can append to.
+    var hasCurrentDraft: Bool {
+        draftsModel.selectedId != nil
+    }
+
+    private func appendQuoteToCurrentDraft(
+        body: String,
+        selection: String,
+        source: QuoteSource
+    ) async throws {
+        guard let draftId = draftsModel.selectedId else {
+            // No current draft — fall back to creating a new one.
+            let draft = try await api.createDraft(body: body)
+            loadDraftInPanel(id: draft.id)
+            return
+        }
+        if draftsModel.isDirty { await draftsModel.saveNow() }
+        _ = try await api.appendToDraft(
+            id: draftId,
+            text: body,
+            sourceItemId: source.itemId,
+            excerpt: selection
+        )
+        // Reload editor and list to reflect the appended content.
+        draftsModel.select(draftId)
+        draftsModel.refreshList()
+        isDraftPanelVisible = true
     }
 
     func loadDraftInPanel(id: String) {

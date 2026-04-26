@@ -10,6 +10,7 @@ struct DraftEditorView: View {
     @State private var showLinkSheet = false
     @State private var linkURLDraft = ""
     @State private var showDeleteConfirm = false
+    @State private var showSourcesPopover = false
 
     var body: some View {
         switch model.editorState {
@@ -108,6 +109,7 @@ struct DraftEditorView: View {
             Text(model.isDirty ? "Unsaved changes" : "Saved")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            sourcesButton
             Button("Save") { model.save() }
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(!model.isDirty)
@@ -154,6 +156,7 @@ struct DraftEditorView: View {
             }
             .pickerStyle(.segmented)
             .fixedSize()
+            sourcesButton
             Menu {
                 Section("Assist") {
                     ForEach(DraftAssistAction.allCases, id: \.self) { action in
@@ -180,6 +183,108 @@ struct DraftEditorView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(app.theme.chromeBackground)
+    }
+
+    @ViewBuilder
+    private var sourcesButton: some View {
+        if !model.sources.isEmpty {
+            Button {
+                showSourcesPopover.toggle()
+            } label: {
+                Label("\(model.sources.count)", systemImage: "link")
+            }
+            .buttonStyle(.borderless)
+            .help("Sources composing this draft")
+            .popover(isPresented: $showSourcesPopover, arrowEdge: .bottom) {
+                sourcesPopoverContent
+            }
+        }
+    }
+
+    private var sourcesPopoverContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Sources")
+                    .font(.headline)
+                Spacer()
+                Text("\(model.sources.count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(uniqueSources()) { row in
+                        sourceRow(row)
+                        Divider().opacity(0.4)
+                    }
+                }
+            }
+        }
+        .frame(width: 360, height: min(400, CGFloat(60 + uniqueSources().count * 70)))
+    }
+
+    private struct GroupedSource: Identifiable {
+        let id: String   // item_id
+        let title: String?
+        let author: String?
+        let url: String?
+        let sources: [DraftSource]
+    }
+
+    private func uniqueSources() -> [GroupedSource] {
+        let dict = Dictionary(grouping: model.sources, by: { $0.itemId })
+        return dict
+            .map { (itemId, group) in
+                let first = group.first
+                return GroupedSource(
+                    id: itemId,
+                    title: first?.itemTitle,
+                    author: first?.itemAuthor,
+                    url: first?.itemUrl,
+                    sources: group
+                )
+            }
+            .sorted { ($0.sources.first?.addedAt ?? "") < ($1.sources.first?.addedAt ?? "") }
+    }
+
+    private func sourceRow(_ group: GroupedSource) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                Button {
+                    app.openItem(id: group.id)
+                    showSourcesPopover = false
+                } label: {
+                    Text(group.title ?? "(untitled)")
+                        .font(.subheadline).bold()
+                        .lineLimit(1)
+                }
+                .buttonStyle(.link)
+                Spacer(minLength: 8)
+                Text("\(group.sources.count)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            if let author = group.author, !author.isEmpty {
+                Text(author)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                Spacer()
+                Button("Remove all", role: .destructive) {
+                    for s in group.sources { model.removeSource(s) }
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .font(.caption2)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
     private func filename(for draft: Draft, ext: String) -> String {

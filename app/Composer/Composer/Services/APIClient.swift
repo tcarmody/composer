@@ -168,6 +168,31 @@ final class APIClient {
         let _: EmptyResponse = try await request("/drafts/\(id)", method: "DELETE", allow204: true)
     }
 
+    func appendToDraft(
+        id: String,
+        text: String,
+        sourceItemId: String? = nil,
+        excerpt: String? = nil
+    ) async throws -> Draft {
+        var payload: [String: Any] = ["text": text]
+        if let sourceItemId { payload["item_id"] = sourceItemId }
+        if let excerpt { payload["excerpt"] = excerpt }
+        let data = try JSONSerialization.data(withJSONObject: payload)
+        return try await request("/drafts/\(id)/append", method: "POST", body: data)
+    }
+
+    func listDraftSources(id: String) async throws -> DraftSourceListResponse {
+        try await request("/drafts/\(id)/sources")
+    }
+
+    func deleteDraftSource(draftId: String, sourceId: Int) async throws {
+        let _: EmptyResponse = try await request(
+            "/drafts/\(draftId)/sources/\(sourceId)",
+            method: "DELETE",
+            allow204: true
+        )
+    }
+
     func assistDraft(
         id: String,
         action: DraftAssistAction,

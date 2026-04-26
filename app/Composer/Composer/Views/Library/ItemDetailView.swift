@@ -43,19 +43,23 @@ struct ItemDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 header(item)
                 if let summary = item.summary, !summary.isEmpty {
-                    section("Summary") {
-                        RichContentView(content: summary, theme: app.theme) { kind, text in
+                    section("Summary", sendableText: summary, item: item) {
+                        RichContentView(content: summary, theme: app.theme, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
                             app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
                         }
                     }
                 }
                 if !item.keyPoints.isEmpty {
-                    section("Key points") {
+                    section(
+                        "Key points",
+                        sendableText: item.keyPoints.map { "- \($0)" }.joined(separator: "\n"),
+                        item: item
+                    ) {
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(Array(item.keyPoints.enumerated()), id: \.offset) { _, kp in
                                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                                     Text("•").foregroundStyle(.secondary)
-                                    RichContentView(content: kp, theme: app.theme) { kind, text in
+                                    RichContentView(content: kp, theme: app.theme, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
                                         app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
                                     }
                                 }
@@ -76,7 +80,7 @@ struct ItemDetailView: View {
                 }
                 if let content = item.content, !content.isEmpty {
                     section("Full text") {
-                        RichContentView(content: content, theme: app.theme) { kind, text in
+                        RichContentView(content: content, theme: app.theme, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
                             app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
                         }
                     }
@@ -174,12 +178,36 @@ struct ItemDetailView: View {
     }
 
     @ViewBuilder
-    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func section<Content: View>(
+        _ title: String,
+        sendableText: String? = nil,
+        item: Item? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption).bold()
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+            HStack {
+                Text(title)
+                    .font(.caption).bold()
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                Spacer()
+                if let sendableText, let item, !sendableText.isEmpty {
+                    Button {
+                        let kind: QuoteKind = app.hasCurrentDraft ? .appendToDraft : .draft
+                        app.quoteAs(kind: kind, selection: sendableText, source: item.quoteSource)
+                    } label: {
+                        Label(
+                            app.hasCurrentDraft ? "Append to Draft" : "New Draft",
+                            systemImage: "arrow.right.doc.on.clipboard"
+                        )
+                        .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                    .help(app.hasCurrentDraft
+                          ? "Append this section to the current draft"
+                          : "Quote this section into a new draft")
+                }
+            }
             content()
         }
     }

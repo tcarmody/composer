@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Iterator
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 class Database:
@@ -149,6 +149,19 @@ class Database:
 
                 CREATE INDEX IF NOT EXISTS idx_drafts_updated_at
                     ON drafts(updated_at DESC);
+
+                CREATE TABLE IF NOT EXISTS draft_sources (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    draft_id  TEXT NOT NULL REFERENCES drafts(id) ON DELETE CASCADE,
+                    item_id   TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+                    excerpt   TEXT,
+                    added_at  TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_draft_sources_draft
+                    ON draft_sources(draft_id, added_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_draft_sources_item
+                    ON draft_sources(item_id);
 
                 CREATE TABLE IF NOT EXISTS chunks (
                     id           TEXT PRIMARY KEY,

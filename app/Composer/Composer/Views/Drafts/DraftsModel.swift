@@ -43,6 +43,7 @@ final class DraftsModel: ObservableObject {
     @Published var titleDraft: String = ""
     @Published var statusDraft: DraftStatus = .wip
     @Published var assistState: AssistState = .idle
+    @Published var sources: [DraftSource] = []
 
     private let api: APIClient
     private var autosaveTask: Task<Void, Never>?
@@ -83,6 +84,7 @@ final class DraftsModel: ObservableObject {
                 self.isDirty = false
                 self.titleDraft = ""
                 self.statusDraft = .wip
+                self.sources = []
                 return
             }
             self.editorState = .loading
@@ -94,6 +96,7 @@ final class DraftsModel: ObservableObject {
                 self.titleDraft = draft.title ?? ""
                 self.statusDraft = draft.status
                 self.isDirty = false
+                await self.loadSources(for: id)
             } catch {
                 self.editorState = .error(error.localizedDescription)
             }
@@ -136,6 +139,27 @@ final class DraftsModel: ObservableObject {
         Task { [weak self] in await self?.saveNow() }
     }
 
+    func loadSources(for draftId: String) async {
+        do {
+            let resp = try await api.listDraftSources(id: draftId)
+            self.sources = resp.sources
+        } catch {
+            self.sources = []
+        }
+    }
+
+    func removeSource(_ source: DraftSource) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.api.deleteDraftSource(draftId: source.draftId, sourceId: source.id)
+                self.sources.removeAll { $0.id == source.id }
+            } catch {
+                print("removeSource failed: \(error)")
+            }
+        }
+    }
+
     func reloadEditorTypeface() {
         guard case .editing(let draft, _, let original) = editorState else { return }
         let markdown = MarkdownConverter.markdown(from: editorAttributed)
@@ -144,7 +168,7 @@ final class DraftsModel: ObservableObject {
         editorState = .editing(draft, attributed, original)
     }
 
-    private func saveNow() async {
+    func saveNow() async {
         guard case .editing(let draft, _, _) = editorState else { return }
         let markdown = MarkdownConverter.markdown(from: editorAttributed)
         let title = titleDraft.isEmpty ? nil : titleDraft
