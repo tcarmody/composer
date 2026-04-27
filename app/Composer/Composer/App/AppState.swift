@@ -29,6 +29,14 @@ final class AppState: ObservableObject {
             // NotesModel reload is on-demand via re-selection.
         }
     }
+    @Published var smartQuotesAutoConvert: Bool = AppState.loadSmartQuotesPref() {
+        didSet { UserDefaults.standard.set(smartQuotesAutoConvert, forKey: "smartQuotesAutoConvert") }
+    }
+
+    private static func loadSmartQuotesPref() -> Bool {
+        if UserDefaults.standard.object(forKey: "smartQuotesAutoConvert") == nil { return true }
+        return UserDefaults.standard.bool(forKey: "smartQuotesAutoConvert")
+    }
 
     let api = APIClient()
     let supervisor = BackendSupervisor()
@@ -74,7 +82,11 @@ final class AppState: ObservableObject {
     }
 
     func quoteAs(kind: QuoteKind, selection: String, source: QuoteSource) {
-        let body = QuotePrefill.build(selection: selection, source: source)
+        let body = QuotePrefill.build(
+            selection: selection,
+            source: source,
+            smartQuotes: smartQuotesAutoConvert
+        )
         Task { [weak self] in
             guard let self else { return }
             do {

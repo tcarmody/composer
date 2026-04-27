@@ -107,6 +107,13 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Editor") {
+                Toggle("Smart quotes", isOn: $app.smartQuotesAutoConvert)
+                Text("Convert straight quotes to curly quotes when a note, story, or other document is sent to a draft.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Index") {
                 HStack {
                     Button {

@@ -15,17 +15,19 @@ struct QuoteSource {
 }
 
 enum QuotePrefill {
-    static func build(selection: String, source: QuoteSource) -> String {
-        let quote = selection
+    static func build(selection: String, source: QuoteSource, smartQuotes: Bool = false) -> String {
+        let quoteText = smartQuotes ? SmartQuotes.convert(selection) : selection
+        let quote = quoteText
             .split(separator: "\n", omittingEmptySubsequences: false)
             .map { "> \($0)" }
             .joined(separator: "\n")
-        return "\(quote)\n\n\(attribution(for: source))\n\n"
+        return "\(quote)\n\n\(attribution(for: source, smartQuotes: smartQuotes))\n\n"
     }
 
-    static func attribution(for source: QuoteSource) -> String {
+    static func attribution(for source: QuoteSource, smartQuotes: Bool = false) -> String {
         let rawTitle = source.title?.trimmingCharacters(in: .whitespaces) ?? ""
-        let title = rawTitle.isEmpty ? "Untitled" : rawTitle
+        var title = rawTitle.isEmpty ? "Untitled" : rawTitle
+        if smartQuotes { title = SmartQuotes.convert(title) }
         let titleLink: String
         if let url = source.url, !url.isEmpty {
             titleLink = "[\(title)](\(url))"
@@ -33,8 +35,8 @@ enum QuotePrefill {
             titleLink = title
         }
         var parts: [String] = []
-        if let author = source.author, !author.isEmpty {
-            parts.append(author)
+        if let rawAuthor = source.author, !rawAuthor.isEmpty {
+            parts.append(smartQuotes ? SmartQuotes.convert(rawAuthor) : rawAuthor)
         }
         parts.append(titleLink)
         if let date = formatDate(source.publishedAt) {

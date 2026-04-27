@@ -114,8 +114,13 @@ struct DraftEditorView: View {
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(!model.isDirty)
             Menu {
-                ForEach(DraftAssistAction.allCases, id: \.self) { action in
-                    Button(action.label) { runAssist(action) }
+                Section("AI") {
+                    ForEach(DraftAssistAction.allCases, id: \.self) { action in
+                        Button(action.label) { runAssist(action) }
+                    }
+                }
+                Section("Format") {
+                    Button("Convert straight quotes to smart quotes") { applySmartQuotes() }
                 }
             } label: {
                 Label("Assist", systemImage: "sparkles")
@@ -162,6 +167,9 @@ struct DraftEditorView: View {
                     ForEach(DraftAssistAction.allCases, id: \.self) { action in
                         Button(action.label) { runAssist(action) }
                     }
+                }
+                Section("Format") {
+                    Button("Convert straight quotes to smart quotes") { applySmartQuotes() }
                 }
                 Section("Export") {
                     Button("Markdown (.md)") { exportMarkdown(draft: draft) }
@@ -337,6 +345,19 @@ struct DraftEditorView: View {
         if panel.runModal() == .OK, let url = panel.url {
             try? contents.write(to: url, atomically: true, encoding: .utf8)
         }
+    }
+
+    private func applySmartQuotes() {
+        guard let tv = commands.store.textView, let storage = tv.textStorage else { return }
+        let selection = tv.selectedRange()
+        let target: NSRange = selection.length > 0
+            ? selection
+            : NSRange(location: 0, length: storage.length)
+        let changes = SmartQuotes.convertInPlace(storage, range: target)
+        guard changes > 0 else { return }
+        tv.didChangeText()
+        tv.setSelectedRange(target)
+        model.editorAttributed = NSAttributedString(attributedString: storage)
     }
 
     private func runAssist(_ action: DraftAssistAction) {
