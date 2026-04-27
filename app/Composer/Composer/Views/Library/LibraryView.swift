@@ -19,13 +19,22 @@ struct LibraryView: View {
             model.refreshList()
         })
         .onAppear {
-            if case .idle = model.listState {
-                model.refreshList()
-            }
+            loadIfReady()
             consumePending()
+        }
+        .onChange(of: app.backendReady) { _, ready in
+            if ready { loadIfReady() }
         }
         .onChange(of: app.pendingItemSelection) { _, _ in
             consumePending()
+        }
+    }
+
+    private func loadIfReady() {
+        guard app.backendReady else { return }
+        switch model.listState {
+        case .idle, .error: model.refreshList()
+        default: break
         }
     }
 

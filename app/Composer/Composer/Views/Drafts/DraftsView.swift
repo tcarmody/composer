@@ -20,13 +20,22 @@ struct DraftsView: View {
             model.refreshList()
         })
         .onAppear {
-            if case .idle = model.listState {
-                model.refreshList()
-            }
+            loadIfReady(model)
             consumePending()
+        }
+        .onChange(of: app.backendReady) { _, ready in
+            if ready { loadIfReady(model) }
         }
         .onChange(of: app.pendingDraftSelection) { _, _ in
             consumePending()
+        }
+    }
+
+    private func loadIfReady(_ model: DraftsModel) {
+        guard app.backendReady else { return }
+        switch model.listState {
+        case .idle, .error: model.refreshList()
+        default: break
         }
     }
 

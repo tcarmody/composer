@@ -10,10 +10,17 @@ struct DraftSidePanelView: View {
             Divider()
             content
         }
-        .onAppear {
-            if case .idle = model.listState {
-                model.refreshList()
-            }
+        .onAppear { loadIfReady() }
+        .onChange(of: app.backendReady) { _, ready in
+            if ready { loadIfReady() }
+        }
+    }
+
+    private func loadIfReady() {
+        guard app.backendReady else { return }
+        switch model.listState {
+        case .idle, .error: model.refreshList()
+        default: break
         }
     }
 

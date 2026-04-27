@@ -5,6 +5,7 @@ import SwiftUI
 @MainActor
 final class AppState: ObservableObject {
     @Published var health: HealthStatus = .unknown
+    @Published private(set) var backendReady: Bool = false
     @Published var selectedTab: NavTab = .library
     @Published var apiKey: String = KeychainService.shared.apiKey ?? ""
     @Published var pendingDraftSelection: String?
@@ -150,9 +151,11 @@ final class AppState: ObservableObject {
         do {
             let resp = try await api.health()
             health = .ok(version: resp.version, schemaVersion: resp.schemaVersion)
+            backendReady = true
             await checkStale(against: resp.commit)
         } catch {
             health = .unreachable(error.localizedDescription)
+            backendReady = false
         }
     }
 
