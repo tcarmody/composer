@@ -1,14 +1,27 @@
+import AppKit
 import SwiftUI
 
 struct ItemListView: View {
     @ObservedObject var model: LibraryModel
     @EnvironmentObject private var app: AppState
+    @State private var pendingDelete: ItemSummary?
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         VStack(spacing: 0) {
             filterBar
             Divider()
             content
+        }
+        .confirmationDialog(
+            "Delete this item?",
+            isPresented: $showDeleteConfirm,
+            presenting: pendingDelete
+        ) { item in
+            Button("Delete", role: .destructive) { model.delete(id: item.id) }
+            Button("Cancel", role: .cancel) {}
+        } message: { item in
+            Text("\"\(item.title)\" will be permanently removed.")
         }
     }
 
@@ -55,6 +68,7 @@ struct ItemListView: View {
                         ForEach(response.items) { item in
                             ItemRowView(item: item, density: app.listDensity)
                                 .tag(item.id)
+                                .contextMenu { rowMenu(for: item) }
                         }
                     } header: {
                         Text("\(response.total) item\(response.total == 1 ? "" : "s")")
@@ -65,6 +79,67 @@ struct ItemListView: View {
                 .listStyle(.inset)
             }
         }
+    }
+
+    @ViewBuilder
+    private func rowMenu(for item: ItemSummary) -> some View {
+        let busy = model.runningAction != nil
+        Button {
+            model.refreshFromSource(id: item.id)
+        } label: {
+            Label("Refresh from source", systemImage: "arrow.clockwise")
+        }
+        .disabled(busy)
+
+        Button {
+            model.fetchContent(id: item.id)
+        } label: {
+            Label("Fetch full content", systemImage: "doc.text.magnifyingglass")
+        }
+        .disabled(busy)
+
+        Button {
+            model.summarize(id: item.id)
+        } label: {
+            Label("Summarize", systemImage: "sparkles")
+        }
+        .disabled(busy)
+
+        Divider()
+
+        Button {
+            model.toggleArchive(id: item.id, isArchived: item.isArchived)
+        } label: {
+            Label(
+                item.isArchived ? "Unarchive" : "Archive",
+                systemImage: item.isArchived ? "tray.and.arrow.up" : "archivebox"
+            )
+        }
+
+        if let url = item.url, !url.isEmpty, let parsed = URL(string: url) {
+            Button {
+                NSWorkspace.shared.open(parsed)
+            } label: {
+                Label("Open in browser", systemImage: "safari")
+            }
+            Button {
+                let pb = NSPasteboard.general
+                pb.clearContents()
+                pb.setString(url, forType: .string)
+            } label: {
+                Label("Copy link", systemImage: "link")
+            }
+        }
+
+        Divider()
+
+        Button(role: .destructive) {
+            pendingDelete = item
+            showDeleteConfirm = true
+        } label: {
+            Label("Delete…", systemImage: "trash")
+        }
+        .disabled(busy)
     }
 
     private var emptyMessage: String {

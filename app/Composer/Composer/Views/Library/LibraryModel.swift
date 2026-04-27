@@ -102,54 +102,64 @@ final class LibraryModel: ObservableObject {
         }
     }
 
-    func toggleArchive(_ item: Item) {
+    func toggleArchive(_ item: Item) { toggleArchive(id: item.id, isArchived: item.isArchived) }
+    func delete(_ item: Item) { delete(id: item.id) }
+    func refreshFromSource(_ item: Item) { refreshFromSource(id: item.id) }
+    func fetchContent(_ item: Item) { fetchContent(id: item.id) }
+    func summarize(_ item: Item) { summarize(id: item.id) }
+
+    func toggleArchive(id: String, isArchived: Bool) {
         Task { [weak self] in
             guard let self else { return }
             do {
-                let updated = try await self.api.setItemArchived(id: item.id, archived: !item.isArchived)
-                self.detailState = .loaded(updated)
+                let updated = try await self.api.setItemArchived(id: id, archived: !isArchived)
+                if self.selectedId == id {
+                    self.detailState = .loaded(updated)
+                }
                 self.refreshList()
             } catch {
-                self.detailState = .error(error.localizedDescription)
+                self.actionError = error.localizedDescription
             }
         }
     }
 
-    func delete(_ item: Item) {
+    func delete(id: String) {
         Task { [weak self] in
             guard let self else { return }
             do {
-                try await self.api.deleteItem(id: item.id)
-                self.selectedId = nil
-                self.detailState = .empty
+                try await self.api.deleteItem(id: id)
+                if self.selectedId == id {
+                    self.selectedId = nil
+                    self.detailState = .empty
+                }
                 self.refreshList()
             } catch {
-                self.detailState = .error(error.localizedDescription)
+                self.actionError = error.localizedDescription
             }
         }
     }
 
-    func refreshFromSource(_ item: Item) {
-        runAction(.refresh, on: item) { api in
-            try await api.refreshItem(id: item.id)
+    func refreshFromSource(id: String) {
+        runAction(.refresh, id: id) { api in
+            try await api.refreshItem(id: id)
         }
     }
 
-    func fetchContent(_ item: Item) {
-        runAction(.fetchContent, on: item) { api in
-            try await api.fetchItemContent(id: item.id)
+    func fetchContent(id: String) {
+        runAction(.fetchContent, id: id) { api in
+            try await api.fetchItemContent(id: id)
         }
     }
 
-    func summarize(_ item: Item) {
-        runAction(.summarize, on: item) { api in
-            try await api.summarizeItem(id: item.id)
+    func summarize(id: String) {
+        runAction(.summarize, id: id) { api in
+            try await api.summarizeItem(id: id)
         }
     }
 
     private func runAction(
         _ action: ItemAction,
-        on item: Item,
+        id: String,
         _ work: @escaping (APIClient) async throws -> Item
     ) {
         guard runningAction == nil else { return }
@@ -160,7 +170,9 @@ final class LibraryModel: ObservableObject {
             defer { self.runningAction = nil }
             do {
                 let updated = try await work(self.api)
-                self.detailState = .loaded(updated)
+                if self.selectedId == id {
+                    self.detailState = .loaded(updated)
+                }
                 self.refreshList()
             } catch {
                 self.actionError = error.localizedDescription
