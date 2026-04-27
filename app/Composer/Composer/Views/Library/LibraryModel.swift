@@ -17,13 +17,23 @@ final class LibraryModel: ObservableObject {
         case error(String)
     }
 
+    enum ItemAction: Equatable {
+        case refresh
+        case fetchContent
+        case summarize
+    }
+
     @Published var query: String = ""
     @Published var showArchived: Bool = false
     @Published var selectedId: String?
     @Published var listState: ListState = .idle
     @Published var detailState: DetailState = .empty
-    @Published var isRefreshing: Bool = false
-    @Published var refreshError: String?
+    @Published var runningAction: ItemAction?
+    @Published var actionError: String?
+
+    var isRefreshing: Bool { runningAction == .refresh }
+    var isFetchingContent: Bool { runningAction == .fetchContent }
+    var isSummarizing: Bool { runningAction == .summarize }
 
     private let api: APIClient
     private var searchTask: Task<Void, Never>?
@@ -120,18 +130,40 @@ final class LibraryModel: ObservableObject {
     }
 
     func refreshFromSource(_ item: Item) {
-        guard !isRefreshing else { return }
-        isRefreshing = true
-        refreshError = nil
+        runAction(.refresh, on: item) { api in
+            try await api.refreshItem(id: item.id)
+        }
+    }
+
+    func fetchContent(_ item: Item) {
+        runAction(.fetchContent, on: item) { api in
+            try await api.fetchItemContent(id: item.id)
+        }
+    }
+
+    func summarize(_ item: Item) {
+        runAction(.summarize, on: item) { api in
+            try await api.summarizeItem(id: item.id)
+        }
+    }
+
+    private func runAction(
+        _ action: ItemAction,
+        on item: Item,
+        _ work: @escaping (APIClient) async throws -> Item
+    ) {
+        guard runningAction == nil else { return }
+        runningAction = action
+        actionError = nil
         Task { [weak self] in
             guard let self else { return }
-            defer { self.isRefreshing = false }
+            defer { self.runningAction = nil }
             do {
-                let updated = try await self.api.refreshItem(id: item.id)
+                let updated = try await work(self.api)
                 self.detailState = .loaded(updated)
                 self.refreshList()
             } catch {
-                self.refreshError = error.localizedDescription
+                self.actionError = error.localizedDescription
             }
         }
     }

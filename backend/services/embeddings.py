@@ -10,6 +10,7 @@ Voyage caps request size; we split into sub-batches to stay under
 import httpx
 
 from ..config import config
+from . import secret_store
 
 VOYAGE_URL = "https://api.voyageai.com/v1/embeddings"
 DEFAULT_MODEL = "voyage-3"
@@ -38,15 +39,18 @@ async def embed_query(text: str) -> tuple[str, list[float]]:
 async def _embed(
     texts: list[str], *, input_type: str
 ) -> tuple[str, list[list[float]]]:
-    if not config.VOYAGE_API_KEY:
-        raise EmbeddingError("VOYAGE_API_KEY is not configured on the server.")
+    api_key = secret_store.get("voyage")
+    if not api_key:
+        raise EmbeddingError(
+            "Voyage API key is not configured. Set it in Settings → LLM Keys."
+        )
     if not texts:
         return _resolve_model(), []
 
     truncated = [t[:TRUNCATE_CHARS] for t in texts]
     model = _resolve_model()
     headers = {
-        "Authorization": f"Bearer {config.VOYAGE_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "content-type": "application/json",
     }
 

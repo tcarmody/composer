@@ -1,15 +1,17 @@
 import { useCallback, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Settings as SettingsIcon } from 'lucide-react'
 import { getHealth } from './lib/api'
 import { Library } from './components/Library'
 import { Collections } from './components/Collections'
 import { Notes } from './components/Notes'
 import { Ask } from './components/Ask'
 import { Drafts } from './components/Drafts'
+import { Settings } from './components/Settings'
 import type { QuoteKind } from './components/ItemDetail'
 import { cn } from './lib/utils'
 
-type View = 'library' | 'collections' | 'notes' | 'ask' | 'publish'
+type View = 'library' | 'collections' | 'notes' | 'ask' | 'publish' | 'settings'
 
 function HealthBadge() {
   const { data, isError } = useQuery({
@@ -120,8 +122,21 @@ export default function App() {
               </button>
             </nav>
           </div>
-          <div className="text-xs text-muted-foreground">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <HealthBadge />
+            <button
+              onClick={() => setView('settings')}
+              className={cn(
+                'p-1 rounded-md transition-colors',
+                view === 'settings'
+                  ? 'text-foreground bg-muted'
+                  : 'hover:text-foreground hover:bg-muted'
+              )}
+              title="Settings"
+              aria-label="Settings"
+            >
+              <SettingsIcon size={16} />
+            </button>
           </div>
         </div>
       </header>
@@ -142,6 +157,7 @@ export default function App() {
           focusRequest={draftsFocusNonce}
         />
       )}
+      {view === 'settings' && <Settings onClose={() => setView('library')} />}
     </div>
   )
 }

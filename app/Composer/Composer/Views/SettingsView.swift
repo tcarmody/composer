@@ -4,6 +4,38 @@ struct SettingsView: View {
     @EnvironmentObject private var app: AppState
     @State private var draftKey: String = ""
     @State private var reindexState: ReindexState = .idle
+    @State private var llmKeys: [String: LLMKeyStatus] = [:]
+    @State private var keyDrafts: [String: String] = [:]
+    @State private var llmKeysWorking: Bool = false
+    @State private var llmKeysError: String?
+
+    private struct LLMKeyDef {
+        let name: String
+        let label: String
+        let placeholder: String
+        let description: String
+    }
+
+    private let llmKeyDefs: [LLMKeyDef] = [
+        .init(
+            name: "anthropic",
+            label: "Anthropic",
+            placeholder: "sk-ant-…",
+            description: "Powers draft Assist, item summaries, and Ask chat."
+        ),
+        .init(
+            name: "openai",
+            label: "OpenAI",
+            placeholder: "sk-…",
+            description: "Optional. Reserved for OpenAI-backed features."
+        ),
+        .init(
+            name: "voyage",
+            label: "Voyage",
+            placeholder: "pa-…",
+            description: "Powers vector search embeddings."
+        ),
+    ]
 
     enum ReindexState: Equatable {
         case idle
@@ -83,6 +115,20 @@ struct SettingsView: View {
                 }
             }
 
+            Section("LLM Keys") {
+                ForEach(llmKeyDefs, id: \.name) { def in
+                    llmKeyRow(def)
+                }
+                if let err = llmKeysError {
+                    Label(err, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+                Text("Stored on the backend at data/secrets.json with mode 0600. UI-set keys override the corresponding environment variables.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Appearance") {
                 Picker("Theme", selection: $app.theme) {
                     ForEach(AppTheme.allCases) { t in
@@ -136,7 +182,111 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 520, height: 640)
-        .onAppear { draftKey = app.apiKey }
+        .onAppear {
+            draftKey = app.apiKey
+            loadLLMKeys()
+        }
+    }
+
+    @ViewBuilder
+    private func llmKeyRow(_ def: LLMKeyDef) -> some View {
+        let status = llmKeys[def.name]
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(def.label).font(.subheadline).bold()
+                    Text(def.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(statusLabel(for: status))
+                    .font(.caption)
+                    .foregroundStyle(statusColor(for: status))
+            }
+            SecureField(def.placeholder, text: draftBinding(for: def.name))
+                .textFieldStyle(.roundedBorder)
+            HStack {
+                Button("Save") { saveKey(def.name) }
+                    .disabled(
+                        (keyDrafts[def.name] ?? "").isEmpty || llmKeysWorking
+                    )
+                if status?.source == "file" {
+                    Button("Clear", role: .destructive) { clearKey(def.name) }
+                        .disabled(llmKeysWorking)
+                }
+                if llmKeysWorking {
+                    ProgressView().controlSize(.small)
+                }
+                Spacer()
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func draftBinding(for name: String) -> Binding<String> {
+        Binding(
+            get: { keyDrafts[name] ?? "" },
+            set: { keyDrafts[name] = $0 }
+        )
+    }
+
+    private func statusLabel(for status: LLMKeyStatus?) -> String {
+        guard let status else { return "Loading…" }
+        if !status.isSet { return "Not configured" }
+        switch status.source {
+        case "file": return "Set via UI"
+        case "env": return "Set via environment"
+        default: return "Set"
+        }
+    }
+
+    private func statusColor(for status: LLMKeyStatus?) -> Color {
+        guard let status else { return .secondary }
+        return status.isSet ? .green : .orange
+    }
+
+    private func loadLLMKeys() {
+        Task {
+            do {
+                let keys = try await app.api.getLLMKeys()
+                llmKeys = keys
+                llmKeysError = nil
+            } catch {
+                llmKeysError = error.localizedDescription
+            }
+        }
+    }
+
+    private func saveKey(_ name: String) {
+        let value = keyDrafts[name] ?? ""
+        guard !value.isEmpty else { return }
+        llmKeysWorking = true
+        llmKeysError = nil
+        Task {
+            defer { llmKeysWorking = false }
+            do {
+                let keys = try await app.api.setLLMKey(name, value: value)
+                llmKeys = keys
+                keyDrafts[name] = ""
+            } catch {
+                llmKeysError = error.localizedDescription
+            }
+        }
+    }
+
+    private func clearKey(_ name: String) {
+        llmKeysWorking = true
+        llmKeysError = nil
+        Task {
+            defer { llmKeysWorking = false }
+            do {
+                let keys = try await app.api.clearLLMKey(name)
+                llmKeys = keys
+            } catch {
+                llmKeysError = error.localizedDescription
+            }
+        }
     }
 
     private var canStart: Bool {

@@ -96,6 +96,39 @@ final class APIClient {
         return try await request("/items/\(id)/refresh", method: "POST", body: body)
     }
 
+    func fetchItemContent(id: String) async throws -> Item {
+        let body = try JSONSerialization.data(withJSONObject: [String: Any]())
+        return try await request("/items/\(id)/fetch-content", method: "POST", body: body)
+    }
+
+    func summarizeItem(id: String) async throws -> Item {
+        let body = try JSONSerialization.data(withJSONObject: [String: Any]())
+        return try await request("/items/\(id)/summarize", method: "POST", body: body)
+    }
+
+    // MARK: - LLM keys
+
+    func getLLMKeys() async throws -> [String: LLMKeyStatus] {
+        let resp: LLMKeysStatusResponse = try await request("/v1/settings/llm-keys")
+        return resp.keys
+    }
+
+    func setLLMKey(_ name: String, value: String) async throws -> [String: LLMKeyStatus] {
+        let payload: [String: Any] = [name: value]
+        let body = try JSONSerialization.data(withJSONObject: payload)
+        let resp: LLMKeysStatusResponse = try await request(
+            "/v1/settings/llm-keys", method: "PUT", body: body
+        )
+        return resp.keys
+    }
+
+    func clearLLMKey(_ name: String) async throws -> [String: LLMKeyStatus] {
+        let resp: LLMKeysStatusResponse = try await request(
+            "/v1/settings/llm-keys/\(name)", method: "DELETE"
+        )
+        return resp.keys
+    }
+
     // MARK: - Notes
 
     func listNotes(limit: Int = 100, offset: Int = 0) async throws -> NoteListResponse {
@@ -424,3 +457,17 @@ final class APIClient {
 }
 
 struct EmptyResponse: Decodable {}
+
+struct LLMKeyStatus: Decodable, Hashable {
+    let isSet: Bool
+    let source: String?
+
+    enum CodingKeys: String, CodingKey {
+        case isSet = "set"
+        case source
+    }
+}
+
+struct LLMKeysStatusResponse: Decodable {
+    let keys: [String: LLMKeyStatus]
+}

@@ -10,6 +10,7 @@ from typing import Literal
 import httpx
 
 from ..config import config
+from . import secret_store
 
 AssistAction = Literal["rewrite", "expand", "summarize", "tighten"]
 
@@ -48,9 +49,10 @@ async def run_assist(
     selection: str | None,
     instructions: str | None,
 ) -> str:
-    if not config.ANTHROPIC_API_KEY:
+    api_key = secret_store.get("anthropic")
+    if not api_key:
         raise AssistError(
-            "ANTHROPIC_API_KEY is not configured on the server."
+            "Anthropic API key is not configured. Set it in Settings → LLM Keys."
         )
 
     task = _ACTION_PROMPTS[action]
@@ -84,7 +86,7 @@ async def run_assist(
     }
 
     headers = {
-        "x-api-key": config.ANTHROPIC_API_KEY,
+        "x-api-key": api_key,
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }

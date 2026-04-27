@@ -120,28 +120,47 @@ struct ItemDetailView: View {
                     .textCase(.uppercase)
                 Spacer()
                 if item.source == "datapoints" {
-                    Button {
+                    actionButton(
+                        title: "Refresh",
+                        runningTitle: "Refreshing…",
+                        systemImage: "arrow.clockwise",
+                        isRunning: model.isRefreshing,
+                        help: "Re-fetch latest content from DataPoints"
+                    ) {
                         model.refreshFromSource(item)
-                    } label: {
-                        if model.isRefreshing {
-                            HStack(spacing: 6) {
-                                ProgressView().controlSize(.small)
-                                Text("Refreshing…")
-                            }
-                        } else {
-                            Label("Refresh", systemImage: "arrow.clockwise")
-                        }
                     }
-                    .disabled(model.isRefreshing)
-                    .help("Re-fetch latest content from DataPoints")
+                }
+                if let url = item.url, !url.isEmpty {
+                    actionButton(
+                        title: "Fetch full text",
+                        runningTitle: "Fetching…",
+                        systemImage: "doc.text.magnifyingglass",
+                        isRunning: model.isFetchingContent,
+                        help: "Fetch the original article and replace the full text"
+                    ) {
+                        model.fetchContent(item)
+                    }
+                }
+                if let content = item.content, !content.isEmpty {
+                    actionButton(
+                        title: "Summarize",
+                        runningTitle: "Summarizing…",
+                        systemImage: "sparkles",
+                        isRunning: model.isSummarizing,
+                        help: "Generate a fresh summary and key points"
+                    ) {
+                        model.summarize(item)
+                    }
                 }
                 Button(item.isArchived ? "Unarchive" : "Archive") {
                     model.toggleArchive(item)
                 }
+                .disabled(model.runningAction != nil)
                 Button("Delete", role: .destructive) {
                     pendingDelete = item
                     showDeleteConfirm = true
                 }
+                .disabled(model.runningAction != nil)
             }
             Text(item.title)
                 .font(.title2).bold()
@@ -162,12 +181,35 @@ struct ItemDetailView: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
-            if let err = model.refreshError {
+            if let err = model.actionError {
                 Label(err, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.red)
             }
         }
+    }
+
+    @ViewBuilder
+    private func actionButton(
+        title: String,
+        runningTitle: String,
+        systemImage: String,
+        isRunning: Bool,
+        help: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            if isRunning {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text(runningTitle)
+                }
+            } else {
+                Label(title, systemImage: systemImage)
+            }
+        }
+        .disabled(model.runningAction != nil)
+        .help(help)
     }
 
     private func sourceLine(_ item: Item) -> String {

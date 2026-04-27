@@ -9,6 +9,7 @@ from .ingest import router as ingest_router
 from .items import router as items_router
 from .notes import router as notes_router
 from .search import router as search_router
+from .settings import router as settings_router
 
 __all__ = [
     "admin_router",
@@ -20,4 +21,5 @@ __all__ = [
     "items_router",
     "notes_router",
     "search_router",
+    "settings_router",
 ]

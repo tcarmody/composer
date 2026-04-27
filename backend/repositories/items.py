@@ -232,3 +232,48 @@ class ItemRepository:
         with self.db.conn() as conn:
             cur = conn.execute("DELETE FROM items WHERE id = ?", (item_id,))
             return cur.rowcount > 0
+
+    def update_content(
+        self,
+        item_id: str,
+        *,
+        content: str,
+        metadata_patch: dict[str, Any] | None = None,
+    ) -> Item | None:
+        """Replace `content` and merge `metadata_patch` into the metadata blob."""
+        with self.db.conn() as conn:
+            row = conn.execute(
+                "SELECT metadata FROM items WHERE id = ?", (item_id,)
+            ).fetchone()
+            if not row:
+                return None
+            existing = _loads(row["metadata"], {}) or {}
+            if metadata_patch:
+                existing.update({k: v for k, v in metadata_patch.items() if v is not None})
+            conn.execute(
+                "UPDATE items SET content = ?, metadata = ? WHERE id = ?",
+                (content, json.dumps(existing), item_id),
+            )
+            updated = conn.execute(
+                "SELECT * FROM items WHERE id = ?", (item_id,)
+            ).fetchone()
+            return _row_to_item(updated) if updated else None
+
+    def update_summary(
+        self,
+        item_id: str,
+        *,
+        summary: str,
+        key_points: list[str],
+    ) -> Item | None:
+        with self.db.conn() as conn:
+            cur = conn.execute(
+                "UPDATE items SET summary = ?, key_points = ? WHERE id = ?",
+                (summary, json.dumps(key_points or []), item_id),
+            )
+            if cur.rowcount == 0:
+                return None
+            row = conn.execute(
+                "SELECT * FROM items WHERE id = ?", (item_id,)
+            ).fetchone()
+            return _row_to_item(row) if row else None

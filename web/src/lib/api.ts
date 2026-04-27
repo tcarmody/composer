@@ -26,6 +26,8 @@ export const api = {
   get: <T>(path: string) => apiRequest<T>(path),
   post: <T>(path: string, body: unknown) =>
     apiRequest<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  put: <T>(path: string, body: unknown) =>
+    apiRequest<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>
     apiRequest<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),
@@ -42,6 +44,26 @@ export interface HealthResponse {
 }
 
 export const getHealth = () => api.get<HealthResponse>('/v1/health')
+
+// ─── settings ─────────────────────────────────────────
+
+export interface LLMKeyStatus {
+  set: boolean
+  source: 'file' | 'env' | null
+}
+
+export interface LLMKeysResponse {
+  keys: Record<string, LLMKeyStatus>
+}
+
+export const getLLMKeys = () =>
+  api.get<LLMKeysResponse>('/v1/settings/llm-keys')
+
+export const setLLMKeys = (payload: Partial<Record<string, string>>) =>
+  api.put<LLMKeysResponse>('/v1/settings/llm-keys', payload)
+
+export const clearLLMKey = (name: string) =>
+  api.delete<LLMKeysResponse>(`/v1/settings/llm-keys/${name}`)
 
 // ─── items ────────────────────────────────────────────
 

@@ -29,6 +29,7 @@ from ..repositories.drafts import DraftsRepository
 from ..repositories.items import ItemRepository
 from ..repositories.notes import NotesRepository
 from ..schemas import ChatMessage
+from . import secret_store
 from .search import hybrid_search
 
 logger = logging.getLogger(__name__)
@@ -99,8 +100,17 @@ async def stream_chat(
     drafts_repo: DraftsRepository,
     history: list[ChatMessage] | None = None,
 ) -> AsyncIterator[bytes]:
-    if not config.ANTHROPIC_API_KEY:
-        yield _sse("error", {"message": "ANTHROPIC_API_KEY is not configured on the server."})
+    api_key = secret_store.get("anthropic")
+    if not api_key:
+        yield _sse(
+            "error",
+            {
+                "message": (
+                    "Anthropic API key is not configured. "
+                    "Set it in Settings → LLM Keys."
+                )
+            },
+        )
         return
 
     hits, vector_used = await hybrid_search(
@@ -155,7 +165,7 @@ async def stream_chat(
         "stream": True,
     }
     headers = {
-        "x-api-key": config.ANTHROPIC_API_KEY,
+        "x-api-key": api_key,
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }

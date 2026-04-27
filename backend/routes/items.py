@@ -18,7 +18,9 @@ from ..schemas import (
     ItemSummaryResponse,
 )
 from ..services.datapoints import DataPointsError, refresh_from_datapoints
+from ..services.fetcher import FetchError, fetch_article, html_to_text
 from ..services.indexer import deindex, index_item
+from ..services.summarizer import SummarizeError, summarize_article
 
 router = APIRouter(
     prefix="/items",
@@ -126,3 +128,84 @@ async def refresh_item(
             detail="Item disappeared during refresh",
         )
     return ItemResponse.from_item(refreshed)
+
+
+@router.post("/{item_id}/fetch-content", response_model=ItemResponse)
+async def fetch_item_content(
+    item_id: str,
+    items: ItemRepository = Depends(get_items_repo),
+) -> ItemResponse:
+    """
+    Fetch the article at this item's URL and replace `content` with the
+    extracted readable HTML. Updates word_count / reading_time / extractor_used
+    in metadata. Re-runs even when `content` already exists.
+    """
+    item = items.get(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if not item.url:
+        raise HTTPException(
+            status_code=400,
+            detail="Item has no URL; nothing to fetch",
+        )
+
+    try:
+        article = await fetch_article(item.url)
+    except FetchError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    metadata_patch = {
+        "word_count": article.word_count,
+        "reading_time_minutes": article.reading_time_minutes,
+        "extractor_used": article.extractor_used,
+        "is_paywalled": article.is_paywalled,
+        "site_name": article.site_name,
+        "content_hash": article.content_hash,
+    }
+    updated = items.update_content(
+        item_id, content=article.content_html, metadata_patch=metadata_patch
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Item not found")
+    asyncio.create_task(index_item(updated))
+    return ItemResponse.from_item(updated)
+
+
+@router.post("/{item_id}/summarize", response_model=ItemResponse)
+async def summarize_item(
+    item_id: str,
+    items: ItemRepository = Depends(get_items_repo),
+) -> ItemResponse:
+    """
+    Generate a fresh summary + key points for this item from its `content`.
+    Re-runs even when a summary already exists.
+    """
+    item = items.get(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if not item.content or len(item.content.strip()) < 200:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Item has insufficient content to summarize. "
+                "Try 'Fetch full text' first."
+            ),
+        )
+
+    plain = html_to_text(item.content)
+    try:
+        result = await summarize_article(
+            content=plain,
+            title=item.title,
+            url=item.url or "",
+        )
+    except SummarizeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    updated = items.update_summary(
+        item_id, summary=result.summary, key_points=result.key_points
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Item not found")
+    asyncio.create_task(index_item(updated))
+    return ItemResponse.from_item(updated)
