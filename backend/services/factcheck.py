@@ -172,7 +172,9 @@ async def factcheck_events(
 
     claims: list[FactCheckClaim] = []
     for i, c in enumerate(raw_claims[:MAX_CLAIMS]):
-        text = (c.get("claim") or "").strip()
+        if not isinstance(c, dict):
+            continue
+        text = _as_str(c.get("claim"))
         if not text:
             continue
         offset, length = _locate(text, passage)
@@ -180,7 +182,7 @@ async def factcheck_events(
             FactCheckClaim(
                 id=f"c{i}",
                 claim=text,
-                kind=(c.get("kind") or None),
+                kind=_as_str(c.get("kind")) or None,
                 offset=offset,
                 length=length,
             )
@@ -196,12 +198,17 @@ async def factcheck_events(
     sem = asyncio.Semaphore(VERIFY_CONCURRENCY)
 
     async def worker(claim: FactCheckClaim) -> None:
-        async with sem:
-            try:
-                event = await _verify_claim(claim, passage, body, api_key)
-            except FactCheckError as e:
-                event = ErrorEvent(message=str(e), claim_id=claim.id)
-            await queue.put(event)
+        # Catch every exception, not just FactCheckError. If a worker dies
+        # without queueing an event, the main loop hangs forever waiting on
+        # queue.get(). This is the safety net.
+        try:
+            async with sem:
+                event: FactCheckEvent = await _verify_claim(
+                    claim, passage, body, api_key
+                )
+        except BaseException as e:  # noqa: BLE001
+            event = ErrorEvent(message=str(e) or repr(e), claim_id=claim.id)
+        await queue.put(event)
 
     tasks = [asyncio.create_task(worker(c)) for c in claims]
     pending = len(tasks)
@@ -214,8 +221,7 @@ async def factcheck_events(
         for t in tasks:
             if not t.done():
                 t.cancel()
-
-    yield DoneEvent(model_used=VERIFY_MODEL)
+        yield DoneEvent(model_used=VERIFY_MODEL)
 
 
 # ─── stage 1: claim extraction ──────────────────────────
@@ -280,33 +286,27 @@ async def _verify_claim(
     if not isinstance(raw, dict):
         raise FactCheckError("Verification response was not a JSON object.")
 
-    verdict_raw = (raw.get("verdict") or "unverified").strip()
+    verdict_raw = _as_str(raw.get("verdict")) or "unverified"
     verdict: Verdict = (
         verdict_raw if verdict_raw in _VALID_VERDICTS else "unverified"  # type: ignore[assignment]
     )
-    explanation = (raw.get("explanation") or "").strip()
-
-    correction = raw.get("suggested_correction")
-    correction = (
-        correction.strip()
-        if isinstance(correction, str) and correction.strip()
-        else None
-    )
+    explanation = _as_str(raw.get("explanation"))
+    correction = _as_str(raw.get("suggested_correction")) or None
 
     sources: list[FactCheckSource] = []
-    sources_raw = raw.get("sources") or []
+    sources_raw = raw.get("sources")
     if isinstance(sources_raw, list):
         for s in sources_raw:
             if not isinstance(s, dict):
                 continue
-            url = (s.get("url") or "").strip()
+            url = _as_str(s.get("url"))
             if not url:
                 continue
             sources.append(
                 FactCheckSource(
-                    title=(s.get("title") or url).strip(),
+                    title=_as_str(s.get("title")) or url,
                     url=url,
-                    snippet=(s.get("snippet") or "").strip() or None,
+                    snippet=_as_str(s.get("snippet")) or None,
                 )
             )
 
@@ -317,6 +317,13 @@ async def _verify_claim(
         suggested_correction=correction,
         sources=sources,
     )
+
+
+def _as_str(value: object) -> str:
+    """Coerce a JSON value to a stripped string. Non-strings become ''."""
+    if isinstance(value, str):
+        return value.strip()
+    return ""
 
 
 # ─── shared helpers ─────────────────────────────────────
@@ -339,10 +346,16 @@ async def _post_messages(payload: dict, api_key: str, timeout: float) -> str:
         )
     data = resp.json()
     blocks = data.get("content") or []
-    text = "\n".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
-    if not text:
+    # With web_search, Claude emits narration text blocks between tool turns.
+    # The answer lives in the LAST text block; earlier ones are commentary.
+    text_blocks = [
+        (b.get("text") or "").strip()
+        for b in blocks
+        if b.get("type") == "text" and (b.get("text") or "").strip()
+    ]
+    if not text_blocks:
         raise FactCheckError("Anthropic returned no text.")
-    return text
+    return text_blocks[-1]
 
 
 def _parse_json(text: str) -> dict | list:
@@ -351,11 +364,31 @@ def _parse_json(text: str) -> dict | list:
         lines = raw.split("\n")
         raw = "\n".join(
             lines[1:-1] if lines and lines[-1].strip() == "```" else lines[1:]
-        )
+        ).strip()
     try:
         return json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise FactCheckError(f"Could not parse response as JSON: {e}") from e
+    except json.JSONDecodeError:
+        pass
+    # Lenient fallback: extract the outermost JSON object or array from prose.
+    obj = _extract_outermost(raw, "{", "}")
+    arr = _extract_outermost(raw, "[", "]")
+    candidate = obj if obj and (not arr or len(obj) > len(arr)) else arr
+    if candidate:
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError as e:
+            raise FactCheckError(
+                f"Could not parse response as JSON: {e}"
+            ) from e
+    raise FactCheckError("Response did not contain a JSON object.")
+
+
+def _extract_outermost(text: str, open_ch: str, close_ch: str) -> str | None:
+    start = text.find(open_ch)
+    end = text.rfind(close_ch)
+    if start < 0 or end <= start:
+        return None
+    return text[start : end + 1]
 
 
 def _locate(claim: str, passage: str) -> tuple[int | None, int | None]:
