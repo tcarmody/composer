@@ -55,30 +55,88 @@ struct DraftEditorView: View {
     }
 
     private func editor(draft: Draft) -> some View {
-        VStack(spacing: 0) {
-            titleBar(draft: draft)
-            Divider()
-            RichTextToolbar(
-                onBold: { commands.store.apply(.toggleBold) },
-                onItalic: { commands.store.apply(.toggleItalic) },
-                onCode: { commands.store.apply(.toggleInlineCode) },
-                onHeading: { level in
-                    let kind: ParagraphKind = level == 1 ? .heading1 : level == 2 ? .heading2 : .heading3
-                    commands.store.apply(.setParagraph(kind))
-                },
-                onBullet: { commands.store.apply(.setParagraph(.bullet)) },
-                onNumbered: { commands.store.apply(.setParagraph(.numbered)) },
-                onQuote: { commands.store.apply(.setParagraph(.blockquote)) },
-                onBody: { commands.store.apply(.setParagraph(.body)) },
-                onLink: { showLinkSheet = true }
-            )
-            Divider()
-            RichTextEditorHosted(attributed: $model.editorAttributed, commands: commands, theme: app.theme)
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                titleBar(draft: draft)
+                Divider()
+                RichTextToolbar(
+                    onBold: { commands.store.apply(.toggleBold) },
+                    onItalic: { commands.store.apply(.toggleItalic) },
+                    onCode: { commands.store.apply(.toggleInlineCode) },
+                    onHeading: { level in
+                        let kind: ParagraphKind = level == 1 ? .heading1 : level == 2 ? .heading2 : .heading3
+                        commands.store.apply(.setParagraph(kind))
+                    },
+                    onBullet: { commands.store.apply(.setParagraph(.bullet)) },
+                    onNumbered: { commands.store.apply(.setParagraph(.numbered)) },
+                    onQuote: { commands.store.apply(.setParagraph(.blockquote)) },
+                    onBody: { commands.store.apply(.setParagraph(.body)) },
+                    onLink: { showLinkSheet = true }
+                )
+                Divider()
+                RichTextEditorHosted(
+                    attributed: $model.editorAttributed,
+                    commands: commands,
+                    theme: app.theme,
+                    menuBuilder: factCheckMenuItems
+                )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            if !isFactCheckIdle {
+                Divider()
+                FactCheckPanel(model: model, onLocate: locateClaim)
+            }
         }
         .background(app.theme.backgroundColor)
         .foregroundStyle(app.theme.textColor, app.theme.secondaryTextColor)
         .tint(app.theme.accentColor)
+    }
+
+    private var isFactCheckIdle: Bool {
+        if case .idle = model.factCheckPhase { return true } else { return false }
+    }
+
+    private func factCheckMenuItems(for range: NSRange) -> [NSMenuItem] {
+        var items: [NSMenuItem] = []
+        if range.length > 0,
+           let storage = commands.store.textView?.textStorage {
+            let captured = storage.attributedSubstring(from: range).string
+            items.append(ClosureMenuItem(title: "Fact-check selection") { [weak model] in
+                model?.startFactCheck(selection: captured)
+            })
+        }
+        items.append(ClosureMenuItem(title: "Fact-check entire draft") { [weak model] in
+            model?.startFactCheck(selection: nil)
+        })
+        return items
+    }
+
+    private func locateClaim(_ claim: String) {
+        guard let tv = commands.store.textView else { return }
+        let haystack = tv.string as NSString
+        let found = haystack.range(of: claim)
+        guard found.location != NSNotFound else {
+            NSSound.beep()
+            return
+        }
+        tv.window?.makeFirstResponder(tv)
+        tv.setSelectedRange(found)
+        tv.scrollRangeToVisible(found)
+    }
+
+    private var hasSelection: Bool {
+        (commands.store.textView?.selectedRange().length ?? 0) > 0
+    }
+
+    private func runFactCheck(useSelection: Bool) {
+        var selectionText: String? = nil
+        if useSelection,
+           let tv = commands.store.textView,
+           let storage = tv.textStorage,
+           tv.selectedRange().length > 0 {
+            selectionText = storage.attributedSubstring(from: tv.selectedRange()).string
+        }
+        model.startFactCheck(selection: selectionText)
     }
 
     @ViewBuilder
@@ -118,6 +176,11 @@ struct DraftEditorView: View {
                     ForEach(DraftAssistAction.allCases, id: \.self) { action in
                         Button(action.label) { runAssist(action) }
                     }
+                }
+                Section("Fact-check") {
+                    Button("Fact-check selection") { runFactCheck(useSelection: true) }
+                        .disabled(!hasSelection)
+                    Button("Fact-check entire draft") { runFactCheck(useSelection: false) }
                 }
                 Section("Format") {
                     Button("Convert straight quotes to smart quotes") { applySmartQuotes() }
@@ -167,6 +230,11 @@ struct DraftEditorView: View {
                     ForEach(DraftAssistAction.allCases, id: \.self) { action in
                         Button(action.label) { runAssist(action) }
                     }
+                }
+                Section("Fact-check") {
+                    Button("Fact-check selection") { runFactCheck(useSelection: true) }
+                        .disabled(!hasSelection)
+                    Button("Fact-check entire draft") { runFactCheck(useSelection: false) }
                 }
                 Section("Format") {
                     Button("Convert straight quotes to smart quotes") { applySmartQuotes() }

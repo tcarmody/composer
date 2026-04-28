@@ -3,6 +3,7 @@
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from ..auth import verify_api_key
 from ..config import get_drafts_repo
@@ -12,6 +13,7 @@ from ..schemas import (
     DraftAssistRequest,
     DraftAssistResponse,
     DraftCreateRequest,
+    DraftFactCheckRequest,
     DraftListResponse,
     DraftPatchRequest,
     DraftResponse,
@@ -19,6 +21,7 @@ from ..schemas import (
     DraftSourceResponse,
 )
 from ..services.assist import AssistError, run_assist
+from ..services.factcheck import stream_factcheck_sse
 from ..services.indexer import deindex, index_draft
 
 router = APIRouter(
@@ -152,3 +155,22 @@ async def assist_draft(
     except AssistError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
     return DraftAssistResponse(suggestion=suggestion)
+
+
+@router.post("/{draft_id}/factcheck")
+async def factcheck_draft(
+    draft_id: str,
+    payload: DraftFactCheckRequest,
+    drafts: DraftsRepository = Depends(get_drafts_repo),
+) -> StreamingResponse:
+    draft = drafts.get(draft_id)
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    return StreamingResponse(
+        stream_factcheck_sse(
+            draft_body=draft.body,
+            selection=payload.selection,
+        ),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

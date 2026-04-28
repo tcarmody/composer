@@ -33,6 +33,14 @@ final class DraftsModel: ObservableObject {
         case error(String)
     }
 
+    enum FactCheckPhase {
+        case idle
+        case extracting(selection: String?)
+        case verifying
+        case done
+        case error(String)
+    }
+
     @Published var listState: ListState = .idle
     @Published var editorState: EditorState = .empty
     @Published var selectedId: String?
@@ -44,10 +52,13 @@ final class DraftsModel: ObservableObject {
     @Published var statusDraft: DraftStatus = .wip
     @Published var assistState: AssistState = .idle
     @Published var sources: [DraftSource] = []
+    @Published var factCheckPhase: FactCheckPhase = .idle
+    @Published var factCheckClaims: [FactCheckClaimState] = []
 
     private let api: APIClient
     private var autosaveTask: Task<Void, Never>?
     private let autosaveDelay: Duration = .milliseconds(1200)
+    private var factCheckTask: Task<Void, Never>?
 
     init(api: APIClient) {
         self.api = api
@@ -240,5 +251,66 @@ final class DraftsModel: ObservableObject {
 
     func dismissAssist() {
         assistState = .idle
+    }
+
+    func startFactCheck(selection: String?) {
+        guard case .editing(let draft, _, _) = editorState else { return }
+        factCheckTask?.cancel()
+        factCheckClaims = []
+        factCheckPhase = .extracting(selection: selection)
+        let stream = api.streamFactCheck(draftId: draft.id, selection: selection)
+        factCheckTask = Task { [weak self] in
+            do {
+                for try await event in stream {
+                    if Task.isCancelled { return }
+                    await MainActor.run { self?.handleFactCheckEvent(event) }
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                await MainActor.run {
+                    self?.factCheckPhase = .error(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    func cancelFactCheck() {
+        factCheckTask?.cancel()
+        factCheckTask = nil
+        factCheckPhase = .idle
+        factCheckClaims = []
+    }
+
+    private func handleFactCheckEvent(_ event: FactCheckStreamEvent) {
+        switch event {
+        case .extracted(let claims):
+            factCheckClaims = claims.map { c in
+                FactCheckClaimState(
+                    id: c.id,
+                    claim: c.claim,
+                    kind: c.kind,
+                    status: .pending,
+                    verdict: nil
+                )
+            }
+            factCheckPhase = .verifying
+        case .verdict(let claimId, let verdict, let explanation, let correction, let sources):
+            if let idx = factCheckClaims.firstIndex(where: { $0.id == claimId }) {
+                factCheckClaims[idx].status = .verified
+                factCheckClaims[idx].verdict = verdict
+                factCheckClaims[idx].explanation = explanation
+                factCheckClaims[idx].suggestedCorrection = correction
+                factCheckClaims[idx].sources = sources
+            }
+        case .done:
+            factCheckPhase = .done
+        case .error(let message, let claimId):
+            if let claimId, let idx = factCheckClaims.firstIndex(where: { $0.id == claimId }) {
+                factCheckClaims[idx].status = .failed(message)
+            } else {
+                factCheckPhase = .error(message)
+            }
+        }
     }
 }

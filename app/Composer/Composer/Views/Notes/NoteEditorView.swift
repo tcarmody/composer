@@ -113,10 +113,23 @@ final class RichTextCommandsHolder: ObservableObject {
     let store = RichTextCommands()
 }
 
+final class ClosureMenuItem: NSMenuItem {
+    private let handler: () -> Void
+    init(title: String, handler: @escaping () -> Void) {
+        self.handler = handler
+        super.init(title: title, action: #selector(invoke), keyEquivalent: "")
+        self.target = self
+    }
+    @available(*, unavailable)
+    required init(coder: NSCoder) { fatalError() }
+    @objc private func invoke() { handler() }
+}
+
 struct RichTextEditorHosted: NSViewRepresentable {
     @Binding var attributed: NSAttributedString
     let commands: RichTextCommandsHolder
     var theme: AppTheme = .auto
+    var menuBuilder: ((NSRange) -> [NSMenuItem])? = nil
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSTextView.scrollableTextView()
@@ -191,6 +204,30 @@ struct RichTextEditorHosted: NSViewRepresentable {
                   let storage = tv.textStorage else { return }
             suppressExternal = true
             parent.attributed = NSAttributedString(attributedString: storage)
+        }
+
+        func textView(
+            _ view: NSTextView,
+            menu: NSMenu,
+            for event: NSEvent,
+            at charIndex: Int
+        ) -> NSMenu? {
+            guard let builder = parent.menuBuilder else { return menu }
+            let selected = view.selectedRange()
+            let target: NSRange
+            if selected.length > 0,
+               NSLocationInRange(charIndex, selected) {
+                target = selected
+            } else {
+                target = NSRange(location: charIndex, length: 0)
+            }
+            let extras = builder(target)
+            guard !extras.isEmpty else { return menu }
+            for (i, item) in extras.enumerated() {
+                menu.insertItem(item, at: i)
+            }
+            menu.insertItem(NSMenuItem.separator(), at: extras.count)
+            return menu
         }
     }
 }

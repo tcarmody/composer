@@ -373,6 +373,82 @@ final class APIClient {
         }
     }
 
+    // MARK: - Fact-check (SSE)
+
+    func streamFactCheck(
+        draftId: String,
+        selection: String?
+    ) -> AsyncThrowingStream<FactCheckStreamEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    guard let url = URL(
+                        string: "/drafts/\(draftId)/factcheck",
+                        relativeTo: baseURL
+                    ) else {
+                        throw APIError.invalidURL
+                    }
+                    var req = URLRequest(url: url)
+                    req.httpMethod = "POST"
+                    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                    if let key = apiKey, !key.isEmpty {
+                        req.setValue(key, forHTTPHeaderField: "X-API-Key")
+                    }
+                    var payload: [String: Any] = [:]
+                    if let selection, !selection.isEmpty {
+                        payload["selection"] = selection
+                    }
+                    req.httpBody = try JSONSerialization.data(withJSONObject: payload)
+                    req.timeoutInterval = 240
+
+                    let (bytes, response) = try await session.bytes(for: req)
+                    guard let http = response as? HTTPURLResponse else {
+                        throw APIError.http(status: -1, body: "")
+                    }
+                    if !(200..<300).contains(http.statusCode) {
+                        var body = ""
+                        for try await line in bytes.lines {
+                            body += line + "\n"
+                            if body.count > 500 { break }
+                        }
+                        throw APIError.http(status: http.statusCode, body: body)
+                    }
+
+                    var eventName: String?
+                    for try await line in bytes.lines {
+                        if line.isEmpty {
+                            eventName = nil
+                            continue
+                        }
+                        if line.hasPrefix("event:") {
+                            eventName = String(line.dropFirst("event:".count))
+                                .trimmingCharacters(in: .whitespaces)
+                        } else if line.hasPrefix("data:") {
+                            guard let name = eventName else { continue }
+                            let payload = String(line.dropFirst("data:".count))
+                                .trimmingCharacters(in: .whitespaces)
+                            guard
+                                let data = payload.data(using: .utf8),
+                                let json = try? JSONSerialization.jsonObject(with: data)
+                                    as? [String: Any]
+                            else { continue }
+                            if let event = FactCheckStreamEvent.parse(name: name, json: json) {
+                                continuation.yield(event)
+                            }
+                        }
+                    }
+                    continuation.finish()
+                } catch is CancellationError {
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     // MARK: - Admin
 
     func reindex() async throws -> [String: Int] {

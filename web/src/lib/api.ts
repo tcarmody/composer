@@ -196,6 +196,139 @@ export const patchDraft = (
 
 export const deleteDraft = (id: string) => api.delete<void>(`/drafts/${id}`)
 
+// ─── fact-check streaming ─────────────────────────────
+
+export type FactCheckVerdict =
+  | 'supported'
+  | 'contradicted'
+  | 'unverified'
+  | 'needs_context'
+
+export interface FactCheckSource {
+  title: string
+  url: string
+  snippet: string | null
+}
+
+export interface FactCheckExtractedClaim {
+  id: string
+  claim: string
+  kind: string | null
+  offset: number | null
+  length: number | null
+}
+
+export type FactCheckStreamEvent =
+  | { type: 'extracted'; claims: FactCheckExtractedClaim[] }
+  | {
+      type: 'verdict'
+      claim_id: string
+      verdict: FactCheckVerdict
+      explanation: string
+      suggested_correction: string | null
+      sources: FactCheckSource[]
+    }
+  | { type: 'done'; model_used: string }
+  | { type: 'error'; message: string; claim_id?: string }
+
+export interface StreamFactCheckParams {
+  draftId: string
+  selection?: string | null
+  signal?: AbortSignal
+}
+
+export async function* streamFactCheck(
+  params: StreamFactCheckParams
+): AsyncGenerator<FactCheckStreamEvent> {
+  const headers = new Headers({
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+  })
+  if (API_KEY) headers.set('X-API-Key', API_KEY)
+
+  const res = await fetch(`/api/drafts/${params.draftId}/factcheck`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ selection: params.selection ?? null }),
+    signal: params.signal,
+  })
+
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => res.statusText)
+    throw new ApiError(res.status, text || res.statusText)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let sep = buffer.indexOf('\n\n')
+      while (sep >= 0) {
+        const record = buffer.slice(0, sep)
+        buffer = buffer.slice(sep + 2)
+        const event = parseFactCheckRecord(record)
+        if (event) yield event
+        sep = buffer.indexOf('\n\n')
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+function parseFactCheckRecord(record: string): FactCheckStreamEvent | null {
+  let name: string | null = null
+  let data = ''
+  for (const raw of record.split('\n')) {
+    const line = raw.replace(/\r$/, '')
+    if (line.startsWith('event:')) {
+      name = line.slice('event:'.length).trim()
+    } else if (line.startsWith('data:')) {
+      const chunk = line.slice('data:'.length).trim()
+      data = data ? `${data}\n${chunk}` : chunk
+    }
+  }
+  if (!name || !data) return null
+  let json: Record<string, unknown>
+  try {
+    json = JSON.parse(data)
+  } catch {
+    return null
+  }
+  switch (name) {
+    case 'extracted':
+      return {
+        type: 'extracted',
+        claims: (json.claims as FactCheckExtractedClaim[]) ?? [],
+      }
+    case 'verdict':
+      return {
+        type: 'verdict',
+        claim_id: (json.claim_id as string) ?? '',
+        verdict: (json.verdict as FactCheckVerdict) ?? 'unverified',
+        explanation: (json.explanation as string) ?? '',
+        suggested_correction:
+          (json.suggested_correction as string | null) ?? null,
+        sources: (json.sources as FactCheckSource[]) ?? [],
+      }
+    case 'done':
+      return { type: 'done', model_used: (json.model_used as string) ?? '' }
+    case 'error':
+      return {
+        type: 'error',
+        message: (json.message as string) ?? 'Unknown error',
+        claim_id: (json.claim_id as string | undefined) ?? undefined,
+      }
+    default:
+      return null
+  }
+}
+
 // ─── collections ──────────────────────────────────────
 
 export type MemberType = 'item' | 'note' | 'draft'

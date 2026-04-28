@@ -8,6 +8,7 @@ import {
   type DraftStatus,
 } from '../lib/api'
 import { cn } from '../lib/utils'
+import { FactCheckPanel } from './FactCheckPanel'
 
 interface Props {
   draftId: string | null
@@ -39,6 +40,54 @@ export function DraftEditor({ draftId, onDeleted, focusRequest }: Props) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const lastFocusHandledRef = useRef<number | undefined>(undefined)
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+    selection: string | null
+  } | null>(null)
+  const [factCheck, setFactCheck] = useState<{ selection: string | null } | null>(
+    null
+  )
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    window.addEventListener('mousedown', close)
+    window.addEventListener('keydown', close)
+    window.addEventListener('blur', close)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('keydown', close)
+      window.removeEventListener('blur', close)
+    }
+  }, [contextMenu])
+
+  const openContextMenu = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    const ta = textareaRef.current
+    if (!ta) return
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    const sel = end > start ? body.slice(start, end).trim() : null
+    setContextMenu({ x: e.clientX, y: e.clientY, selection: sel || null })
+  }
+
+  const startFactCheck = (selection: string | null) => {
+    setContextMenu(null)
+    setFactCheck({ selection })
+  }
+
+  const locateInDraft = (offset: number, length: number) => {
+    const ta = textareaRef.current
+    if (!ta) return
+    ta.focus()
+    ta.setSelectionRange(offset, offset + length)
+    // Scroll the selection into view by approximating its line.
+    const before = body.slice(0, offset)
+    const line = before.split('\n').length - 1
+    const lineHeight = 20
+    ta.scrollTop = Math.max(0, line * lineHeight - ta.clientHeight / 2)
+  }
 
   useEffect(() => {
     if (!data) {
@@ -154,46 +203,119 @@ export function DraftEditor({ draftId, onDeleted, focusRequest }: Props) {
       status !== loaded.status)
 
   return (
-    <div className="flex flex-col h-full max-w-3xl w-full mx-auto">
-      <header className="p-6 pb-3 border-b space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Untitled draft"
-            className="flex-1 text-2xl font-semibold leading-tight bg-transparent focus:outline-none placeholder:text-muted-foreground/50"
-          />
-          <div className="flex items-center gap-2 shrink-0">
-            <SaveStatus
-              isDirty={isDirty}
-              isSaving={patchMutation.isPending}
-              savedAt={savedAt}
-              hasError={patchMutation.isError}
+    <div className="flex h-full w-full">
+      <div className="flex flex-col h-full flex-1 max-w-3xl w-full mx-auto">
+        <header className="p-6 pb-3 border-b space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Untitled draft"
+              className="flex-1 text-2xl font-semibold leading-tight bg-transparent focus:outline-none placeholder:text-muted-foreground/50"
             />
+            <div className="flex items-center gap-2 shrink-0">
+              <SaveStatus
+                isDirty={isDirty}
+                isSaving={patchMutation.isPending}
+                savedAt={savedAt}
+                hasError={patchMutation.isError}
+              />
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <StatusPicker value={status} onChange={setStatus} />
-          <div className="flex-1" />
-          <ExportMenu draft={data} currentBody={body} currentTitle={title} />
-          <button
-            onClick={() => {
-              if (confirm('Delete this draft?')) deleteMutation.mutate()
-            }}
-            disabled={deleteMutation.isPending}
-            className="text-xs border px-3 py-1 rounded-md hover:bg-muted text-red-600 disabled:opacity-50"
-          >
-            Delete
-          </button>
-        </div>
-      </header>
-      <textarea
-        ref={textareaRef}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        placeholder="Start writing in markdown…"
-        className="flex-1 w-full p-6 text-sm font-mono leading-relaxed bg-transparent resize-none focus:outline-none"
-      />
+          <div className="flex items-center gap-2 flex-wrap">
+            <StatusPicker value={status} onChange={setStatus} />
+            <div className="flex-1" />
+            <button
+              onClick={() => startFactCheck(null)}
+              disabled={Boolean(factCheck)}
+              className="text-xs border px-3 py-1 rounded-md hover:bg-muted disabled:opacity-50"
+              title="Fact-check the entire draft"
+            >
+              Fact-check
+            </button>
+            <ExportMenu draft={data} currentBody={body} currentTitle={title} />
+            <button
+              onClick={() => {
+                if (confirm('Delete this draft?')) deleteMutation.mutate()
+              }}
+              disabled={deleteMutation.isPending}
+              className="text-xs border px-3 py-1 rounded-md hover:bg-muted text-red-600 disabled:opacity-50"
+            >
+              Delete
+            </button>
+          </div>
+        </header>
+        <textarea
+          ref={textareaRef}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onContextMenu={openContextMenu}
+          placeholder="Start writing in markdown…"
+          className="flex-1 w-full p-6 text-sm font-mono leading-relaxed bg-transparent resize-none focus:outline-none"
+        />
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            selection={contextMenu.selection}
+            onFactCheckSelection={() =>
+              startFactCheck(contextMenu.selection)
+            }
+            onFactCheckDraft={() => startFactCheck(null)}
+          />
+        )}
+      </div>
+      {factCheck && (
+        <FactCheckPanel
+          draftId={data.id}
+          selection={factCheck.selection}
+          onClose={() => setFactCheck(null)}
+          onLocate={locateInDraft}
+        />
+      )}
+    </div>
+  )
+}
+
+function ContextMenu({
+  x,
+  y,
+  selection,
+  onFactCheckSelection,
+  onFactCheckDraft,
+}: {
+  x: number
+  y: number
+  selection: string | null
+  onFactCheckSelection: () => void
+  onFactCheckDraft: () => void
+}) {
+  return (
+    <div
+      style={{ left: x, top: y }}
+      className="fixed z-50 w-56 rounded-md border bg-background shadow-md text-sm py-1"
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      {selection && (
+        <button
+          className="w-full text-left px-3 py-1.5 hover:bg-muted"
+          onMouseDown={(e) => {
+            e.stopPropagation()
+            onFactCheckSelection()
+          }}
+        >
+          Fact-check selection
+        </button>
+      )}
+      <button
+        className="w-full text-left px-3 py-1.5 hover:bg-muted"
+        onMouseDown={(e) => {
+          e.stopPropagation()
+          onFactCheckDraft()
+        }}
+      >
+        Fact-check entire draft
+      </button>
     </div>
   )
 }

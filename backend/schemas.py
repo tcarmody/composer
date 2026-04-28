@@ -264,6 +264,13 @@ class DraftAssistResponse(BaseModel):
     suggestion: str
 
 
+# ─── fact-check ────────────────────────────────────────
+
+
+class DraftFactCheckRequest(BaseModel):
+    selection: str | None = None
+
+
 # ─── collections ────────────────────────────────────────
 
 MemberType = Literal["item", "note", "draft"]
