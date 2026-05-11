@@ -6,8 +6,24 @@ for further editing. Items quote their title/author/summary (or full
 content if requested); notes and drafts are inlined as-is.
 """
 
+from urllib.parse import urlparse
+
 from ..repositories.collections import OutlineNode
 from ..repositories.items import ItemRepository
+
+
+def _outlet_name(url: str | None) -> str | None:
+    """Derive a publisher label from the URL host."""
+    if not url:
+        return None
+    host = (urlparse(url).hostname or "").lower()
+    if not host:
+        return None
+    for prefix in ("www.", "m.", "amp."):
+        if host.startswith(prefix):
+            host = host[len(prefix):]
+            break
+    return host or None
 
 
 def compile_outline_to_markdown(
@@ -55,39 +71,33 @@ def _render_item(
     title = node.item_title or "(untitled)"
     lines: list[str] = [f"## {title}"]
 
-    meta: list[str] = []
-    if node.item_author:
-        meta.append(node.item_author)
-    if node.item_published_at:
-        meta.append(node.item_published_at)
-    if meta:
+    item = items_repo.get(node.member_id)
+    url = item.url if item else None
+    outlet = _outlet_name(url)
+    if outlet and url:
         lines.append("")
-        lines.append(f"*{' · '.join(meta)}*")
+        lines.append(f"*[{outlet}]({url})*")
+    elif outlet:
+        lines.append("")
+        lines.append(f"*{outlet}*")
+    elif url:
+        lines.append("")
+        lines.append(f"[Source]({url})")
 
-    if include_full_content:
-        item = items_repo.get(node.member_id)
-        if item:
-            if item.url:
-                lines.append("")
-                lines.append(f"[Source]({item.url})")
-            if item.summary:
-                lines.append("")
-                lines.append(item.summary.strip())
-            if item.key_points:
-                lines.append("")
-                for kp in item.key_points:
-                    lines.append(f"- {kp}")
-            if item.content:
-                lines.append("")
-                lines.append(item.content.strip())
-    else:
-        item = items_repo.get(node.member_id)
-        if item and item.url:
+    if include_full_content and item:
+        if item.summary:
             lines.append("")
-            lines.append(f"[Source]({item.url})")
-        if node.item_summary:
+            lines.append(item.summary.strip())
+        if item.key_points:
             lines.append("")
-            lines.append(node.item_summary.strip())
+            for kp in item.key_points:
+                lines.append(f"- {kp}")
+        if item.content:
+            lines.append("")
+            lines.append(item.content.strip())
+    elif not include_full_content and node.item_summary:
+        lines.append("")
+        lines.append(node.item_summary.strip())
 
     return "\n".join(lines)
 

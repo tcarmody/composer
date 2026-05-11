@@ -25,39 +25,34 @@ enum QuotePrefill {
     }
 
     static func attribution(for source: QuoteSource, smartQuotes: Bool = false) -> String {
-        let rawTitle = source.title?.trimmingCharacters(in: .whitespaces) ?? ""
-        var title = rawTitle.isEmpty ? "Untitled" : rawTitle
-        if smartQuotes { title = SmartQuotes.convert(title) }
-        let titleLink: String
-        if let url = source.url, !url.isEmpty {
-            titleLink = "[\(title)](\(url))"
-        } else {
-            titleLink = title
+        let url = source.url?.trimmingCharacters(in: .whitespaces) ?? ""
+        let outlet = outletName(forURL: url) ?? fallbackLabel(for: source, smartQuotes: smartQuotes)
+        if url.isEmpty {
+            return "— \(outlet)"
         }
-        var parts: [String] = []
-        if let rawAuthor = source.author, !rawAuthor.isEmpty {
-            parts.append(smartQuotes ? SmartQuotes.convert(rawAuthor) : rawAuthor)
-        }
-        parts.append(titleLink)
-        if let date = formatDate(source.publishedAt) {
-            parts.append("(\(date))")
-        }
-        return "— " + parts.joined(separator: ", ")
+        return "— [\(outlet)](\(url))"
     }
 
-    private static func formatDate(_ iso: String?) -> String? {
-        guard let iso, !iso.isEmpty else { return nil }
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) {
-            return d.formatted(.dateTime.month(.abbreviated).day().year())
+    /// Best-effort outlet/publisher label derived from the URL host.
+    /// Strips common subdomain prefixes (`www.`, `m.`, `amp.`).
+    static func outletName(forURL urlString: String) -> String? {
+        guard !urlString.isEmpty,
+              let url = URL(string: urlString),
+              let host = url.host, !host.isEmpty else { return nil }
+        var cleaned = host
+        for prefix in ["www.", "m.", "amp."] {
+            if cleaned.hasPrefix(prefix) {
+                cleaned.removeFirst(prefix.count)
+                break
+            }
         }
-        let fallback = DateFormatter()
-        fallback.dateFormat = "yyyy-MM-dd"
-        if let d = fallback.date(from: String(iso.prefix(10))) {
-            return d.formatted(.dateTime.month(.abbreviated).day().year())
-        }
-        return nil
+        return cleaned
+    }
+
+    private static func fallbackLabel(for source: QuoteSource, smartQuotes: Bool) -> String {
+        let title = (source.title ?? "").trimmingCharacters(in: .whitespaces)
+        if title.isEmpty { return "Source" }
+        return smartQuotes ? SmartQuotes.convert(title) : title
     }
 }
 
