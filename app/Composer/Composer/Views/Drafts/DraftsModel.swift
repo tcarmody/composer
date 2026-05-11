@@ -282,6 +282,12 @@ final class DraftsModel: ObservableObject {
         factCheckClaims = []
     }
 
+    func markClaimApplied(_ claimId: String) {
+        if let idx = factCheckClaims.firstIndex(where: { $0.id == claimId }) {
+            factCheckClaims[idx].applied = true
+        }
+    }
+
     private func handleFactCheckEvent(_ event: FactCheckStreamEvent) {
         switch event {
         case .extracted(let claims):

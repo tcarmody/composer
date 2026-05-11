@@ -84,7 +84,11 @@ struct DraftEditorView: View {
             }
             if !isFactCheckIdle {
                 Divider()
-                FactCheckPanel(model: model, onLocate: locateClaim)
+                FactCheckPanel(
+                    model: model,
+                    onLocate: locateClaim,
+                    onApplyCorrection: applyCorrection
+                )
             }
         }
         .background(app.theme.backgroundColor)
@@ -122,6 +126,27 @@ struct DraftEditorView: View {
         tv.window?.makeFirstResponder(tv)
         tv.setSelectedRange(found)
         tv.scrollRangeToVisible(found)
+    }
+
+    private func applyCorrection(_ claim: FactCheckClaimState) -> Bool {
+        guard let correction = claim.suggestedCorrection,
+              let tv = commands.store.textView,
+              let storage = tv.textStorage else { return false }
+        let found = (tv.string as NSString).range(of: claim.claim)
+        guard found.location != NSNotFound else {
+            NSSound.beep()
+            return false
+        }
+        let baseAttrs = storage.attributes(at: found.location, effectiveRange: nil)
+        let replacement = NSAttributedString(string: correction, attributes: baseAttrs)
+        storage.replaceCharacters(in: found, with: replacement)
+        let newRange = NSRange(location: found.location, length: (correction as NSString).length)
+        tv.didChangeText()
+        tv.setSelectedRange(newRange)
+        tv.scrollRangeToVisible(newRange)
+        model.editorAttributed = NSAttributedString(attributedString: storage)
+        model.markClaimApplied(claim.id)
+        return true
     }
 
     private var hasSelection: Bool {

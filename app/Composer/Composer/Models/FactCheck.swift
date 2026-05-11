@@ -125,4 +125,5 @@ struct FactCheckClaimState: Identifiable {
     var explanation: String = ""
     var suggestedCorrection: String?
     var sources: [FactCheckSource] = []
+    var applied: Bool = false
 }

@@ -5,6 +5,7 @@ struct FactCheckPanel: View {
     @ObservedObject var model: DraftsModel
     @EnvironmentObject private var app: AppState
     var onLocate: (String) -> Void
+    var onApplyCorrection: (FactCheckClaimState) -> Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,7 +34,11 @@ struct FactCheckPanel: View {
                         .padding(12)
                     }
                     ForEach(model.factCheckClaims) { claim in
-                        ClaimRow(claim: claim, onLocate: { onLocate(claim.claim) })
+                        ClaimRow(
+                            claim: claim,
+                            onLocate: { onLocate(claim.claim) },
+                            onApply: { onApplyCorrection(claim) }
+                        )
                     }
                 }
                 .padding(10)
@@ -98,18 +103,24 @@ struct FactCheckPanel: View {
 private struct ClaimRow: View {
     let claim: FactCheckClaimState
     let onLocate: () -> Void
+    let onApply: () -> Bool
+
+    @State private var applyFailed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 8) {
                 badge
+                Text("\u{201C}\(claim.claim)\u{201D}")
+                    .font(.callout)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
                 Button(action: onLocate) {
-                    Text("\u{201C}\(claim.claim)\u{201D}")
-                        .font(.callout)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "scope")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
+                .controlSize(.small)
                 .help("Jump to claim in draft")
             }
             switch claim.status {
@@ -119,26 +130,20 @@ private struct ClaimRow: View {
                     Text("Searching the web…").font(.caption).foregroundStyle(.secondary)
                 }
             case .failed(let msg):
-                Text(msg).font(.caption).foregroundStyle(.red)
+                Text(msg)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
             case .verified:
                 if !claim.explanation.isEmpty {
                     Text(claim.explanation)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                 }
                 if let correction = claim.suggestedCorrection {
-                    HStack(alignment: .top, spacing: 6) {
-                        Rectangle()
-                            .fill(Color.orange)
-                            .frame(width: 2)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Suggested correction")
-                                .font(.caption2.bold())
-                                .foregroundStyle(.orange)
-                            Text(correction).font(.caption)
-                        }
-                    }
+                    correctionBlock(correction)
                 }
                 if !claim.sources.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
@@ -159,6 +164,7 @@ private struct ClaimRow: View {
                                         .font(.caption2)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(2)
+                                        .textSelection(.enabled)
                                 }
                             }
                         }
@@ -173,6 +179,57 @@ private struct ClaimRow: View {
             RoundedRectangle(cornerRadius: 6)
                 .stroke(borderColor, lineWidth: 1)
         )
+    }
+
+    private func correctionBlock(_ correction: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Rectangle()
+                .fill(Color.orange)
+                .frame(width: 2)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text("Suggested correction")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.orange)
+                    Spacer()
+                    Button {
+                        let pb = NSPasteboard.general
+                        pb.clearContents()
+                        pb.setString(correction, forType: .string)
+                    } label: {
+                        Label("Copy", systemImage: "doc.on.doc")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                    .help("Copy correction to clipboard")
+                    if claim.applied {
+                        Label("Applied", systemImage: "checkmark")
+                            .font(.caption2)
+                            .foregroundStyle(.green)
+                            .labelStyle(.titleAndIcon)
+                    } else {
+                        Button {
+                            applyFailed = !onApply()
+                        } label: {
+                            Text("Apply")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .help("Replace claim text in draft with this correction")
+                    }
+                }
+                Text(correction)
+                    .font(.caption)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                if applyFailed {
+                    Text("Couldn’t find the claim text in the draft. Edit it manually or copy.")
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
     }
 
     private var badge: some View {
