@@ -52,4 +52,5 @@ app/**/*.xcodeproj
 app/**/xcuserdata/
 app/**/DerivedData/
 app/**/build/
+app/**/builds/
 *.xcworkspace/xcuserdata/
