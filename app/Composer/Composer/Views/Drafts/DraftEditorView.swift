@@ -9,41 +9,136 @@ struct DraftEditorView: View {
     @StateObject private var commands = RichTextCommandsHolder()
     @State private var showLinkSheet = false
     @State private var linkURLDraft = ""
-    @State private var showDeleteConfirm = false
     @State private var showSourcesPopover = false
 
     var body: some View {
-        switch model.editorState {
-        case .empty:
-            ContentUnavailableView(
-                "Select a draft",
-                systemImage: "doc.text",
-                description: Text("Pick a draft from the list, or start a new one.")
-            )
-        case .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .error(let msg):
-            ContentUnavailableView(
-                "Failed to load",
-                systemImage: "exclamationmark.triangle",
-                description: Text(msg)
-            )
-        case .editing(let draft, _, _):
-            editor(draft: draft)
-                .sheet(isPresented: $showLinkSheet) { linkSheet }
-                .sheet(isPresented: Binding(
-                    get: { isAssistSheetVisible },
-                    set: { if !$0 { model.dismissAssist() } }
-                )) { assistSheet }
-                .confirmationDialog(
-                    "Delete this draft?",
-                    isPresented: $showDeleteConfirm
-                ) {
-                    Button("Delete", role: .destructive) { model.delete(draft) }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    Text("The draft will be removed permanently.")
+        Group {
+            switch model.editorState {
+            case .empty:
+                ContentUnavailableView(
+                    "Select a draft",
+                    systemImage: "doc.text",
+                    description: Text("Pick a draft from the list, or start a new one.")
+                )
+            case .loading:
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .error(let msg):
+                ContentUnavailableView(
+                    "Failed to load",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(msg)
+                )
+            case .editing(let draft, _, _):
+                editor(draft: draft)
+                    .sheet(isPresented: $showLinkSheet) { linkSheet }
+                    .sheet(isPresented: Binding(
+                        get: { isAssistSheetVisible },
+                        set: { if !$0 { model.dismissAssist() } }
+                    )) { assistSheet }
+            }
+        }
+        .confirmationDialog(
+            "Delete this draft?",
+            isPresented: Binding(
+                get: { model.pendingDelete != nil },
+                set: { if !$0 { model.pendingDelete = nil } }
+            ),
+            presenting: model.pendingDelete
+        ) { draft in
+            Button("Delete", role: .destructive) {
+                model.delete(draft)
+                model.pendingDelete = nil
+            }
+            Button("Cancel", role: .cancel) {
+                model.pendingDelete = nil
+            }
+        } message: { _ in
+            Text("The draft will be removed permanently.")
+        }
+        .focusedSceneValue(\.saveAction, currentSaveAction)
+        .focusedSceneValue(\.deleteAction, currentDeleteAction)
+        .focusedSceneValue(\.formatAction, currentFormatAction)
+        .focusedSceneValue(\.toolsAction, currentToolsAction)
+        .focusedSceneValue(\.shareAction, currentShareAction)
+        .toolbar { editorToolbar }
+    }
+
+    @ToolbarContentBuilder
+    private var editorToolbar: some ToolbarContent {
+        if !isCompact, case .editing(let draft, _, _) = model.editorState {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    ForEach(DraftAssistAction.allCases, id: \.self) { action in
+                        Button(action.label) { runAssist(action) }
+                    }
+                } label: {
+                    Label("Assist", systemImage: "sparkles")
                 }
+                .help("AI Assist actions")
+                .accessibilityLabel("AI Assist actions")
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button("Fact-check Selection") { runFactCheck(useSelection: true) }
+                        .disabled(!hasSelection)
+                    Button("Fact-check Entire Draft") { runFactCheck(useSelection: false) }
+                } label: {
+                    Label("Fact-check", systemImage: "checkmark.shield")
+                }
+                .help("Verify claims against sources")
+                .accessibilityLabel("Fact-check")
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button("Markdown (.md)…") { exportMarkdown(draft: draft) }
+                    Button("HTML (.html)…") { exportHTML(draft: draft) }
+                    Button("Copy HTML to Clipboard") { copyHTML(draft: draft) }
+                } label: {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                }
+                .help("Export draft")
+                .accessibilityLabel("Export draft")
+            }
+        }
+    }
+
+    private var currentSaveAction: SaveAction? {
+        guard case .editing = model.editorState else { return nil }
+        return SaveAction(isEnabled: model.isDirty) { model.save() }
+    }
+
+    private var currentDeleteAction: DeleteAction? {
+        guard case .editing(let draft, _, _) = model.editorState else { return nil }
+        return DeleteAction(title: "Delete Draft", isEnabled: true) {
+            model.requestDelete(draft)
+        }
+    }
+
+    private var currentFormatAction: FormatAction? {
+        guard case .editing = model.editorState else { return nil }
+        return FormatAction(
+            smartQuotes: { scope in applySmartQuotes(scope: scope) },
+            hasSelection: hasSelection
+        )
+    }
+
+    private var currentToolsAction: ToolsAction? {
+        guard case .editing = model.editorState else { return nil }
+        return ToolsAction(
+            runAssist: { action in runAssist(action) },
+            runFactCheck: { scope in runFactCheck(useSelection: scope == .selection) },
+            hasSelection: hasSelection
+        )
+    }
+
+    private var currentShareAction: ShareAction? {
+        guard case .editing(let draft, _, _) = model.editorState else { return nil }
+        return ShareAction { fmt in
+            switch fmt {
+            case .markdown: exportMarkdown(draft: draft)
+            case .html: exportHTML(draft: draft)
+            case .copyHTML: copyHTML(draft: draft)
+            }
         }
     }
 
@@ -94,6 +189,7 @@ struct DraftEditorView: View {
         .background(app.theme.backgroundColor)
         .foregroundStyle(app.theme.textColor, app.theme.secondaryTextColor)
         .tint(app.theme.accentColor)
+        .navigationSubtitle(isCompact ? "" : (model.isDirty ? "Unsaved changes" : ""))
     }
 
     private var isFactCheckIdle: Bool {
@@ -178,7 +274,8 @@ struct DraftEditorView: View {
             TextField("Untitled", text: $model.titleDraft, onEditingChanged: { _ in model.titleChanged() })
                 .textFieldStyle(.plain)
                 .font(.title2).bold()
-            Picker("", selection: Binding(
+                .accessibilityLabel("Draft title")
+            Picker("Status", selection: Binding(
                 get: { model.statusDraft },
                 set: { model.statusDraft = $0; model.statusChanged() }
             )) {
@@ -188,43 +285,17 @@ struct DraftEditorView: View {
             }
             .pickerStyle(.segmented)
             .fixedSize()
+            .labelsHidden()
+            .accessibilityLabel("Draft status")
             Spacer()
-            Text(model.isDirty ? "Unsaved changes" : "Saved")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if model.isDirty {
+                Circle()
+                    .fill(Color.orange)
+                    .frame(width: 6, height: 6)
+                    .help("Unsaved changes")
+                    .accessibilityLabel("Unsaved changes")
+            }
             sourcesButton
-            Button("Save") { model.save() }
-                .keyboardShortcut("s", modifiers: .command)
-                .disabled(!model.isDirty)
-            Menu {
-                Section("AI") {
-                    ForEach(DraftAssistAction.allCases, id: \.self) { action in
-                        Button(action.label) { runAssist(action) }
-                    }
-                }
-                Section("Fact-check") {
-                    Button("Fact-check selection") { runFactCheck(useSelection: true) }
-                        .disabled(!hasSelection)
-                    Button("Fact-check entire draft") { runFactCheck(useSelection: false) }
-                }
-                Section("Format") {
-                    Button("Convert straight quotes to smart quotes") { applySmartQuotes() }
-                }
-            } label: {
-                Label("Assist", systemImage: "sparkles")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            Menu {
-                Button("Markdown (.md)") { exportMarkdown(draft: draft) }
-                Button("HTML (.html)") { exportHTML(draft: draft) }
-                Button("Copy HTML to Clipboard") { copyHTML(draft: draft) }
-            } label: {
-                Label("Export", systemImage: "square.and.arrow.up")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            Button("Delete", role: .destructive) { showDeleteConfirm = true }
         }
         .padding(16)
         .background(app.theme.chromeBackground)
@@ -235,11 +306,13 @@ struct DraftEditorView: View {
             TextField("Untitled", text: $model.titleDraft, onEditingChanged: { _ in model.titleChanged() })
                 .textFieldStyle(.plain)
                 .font(.headline)
+                .accessibilityLabel("Draft title")
             Circle()
                 .fill(model.isDirty ? Color.orange : Color.clear)
                 .frame(width: 6, height: 6)
                 .help(model.isDirty ? "Unsaved changes" : "Saved")
-            Picker("", selection: Binding(
+                .accessibilityLabel(model.isDirty ? "Unsaved changes" : "Saved")
+            Picker("Status", selection: Binding(
                 get: { model.statusDraft },
                 set: { model.statusDraft = $0; model.statusChanged() }
             )) {
@@ -249,6 +322,8 @@ struct DraftEditorView: View {
             }
             .pickerStyle(.segmented)
             .fixedSize()
+            .labelsHidden()
+            .accessibilityLabel("Draft status")
             sourcesButton
             Menu {
                 Section("Assist") {
@@ -262,24 +337,26 @@ struct DraftEditorView: View {
                     Button("Fact-check entire draft") { runFactCheck(useSelection: false) }
                 }
                 Section("Format") {
-                    Button("Convert straight quotes to smart quotes") { applySmartQuotes() }
+                    Button("Convert straight quotes to smart quotes") { applySmartQuotes(scope: .all) }
                 }
                 Section("Export") {
-                    Button("Markdown (.md)") { exportMarkdown(draft: draft) }
-                    Button("HTML (.html)") { exportHTML(draft: draft) }
+                    Button("Markdown (.md)…") { exportMarkdown(draft: draft) }
+                    Button("HTML (.html)…") { exportHTML(draft: draft) }
                     Button("Copy HTML to Clipboard") { copyHTML(draft: draft) }
                 }
                 Section {
                     Button("Save", action: { model.save() })
                         .keyboardShortcut("s", modifiers: .command)
                         .disabled(!model.isDirty)
-                    Button("Delete", role: .destructive) { showDeleteConfirm = true }
+                    Button("Delete", role: .destructive) { model.requestDelete(draft) }
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
+            .help("Draft actions")
+            .accessibilityLabel("Draft actions")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -296,6 +373,7 @@ struct DraftEditorView: View {
             }
             .buttonStyle(.borderless)
             .help("Sources composing this draft")
+            .accessibilityLabel("\(model.sources.count) source\(model.sources.count == 1 ? "" : "s")")
             .popover(isPresented: $showSourcesPopover, arrowEdge: .bottom) {
                 sourcesPopoverContent
             }
@@ -440,10 +518,10 @@ struct DraftEditorView: View {
         }
     }
 
-    private func applySmartQuotes() {
+    private func applySmartQuotes(scope: SmartQuotesScope) {
         guard let tv = commands.store.textView, let storage = tv.textStorage else { return }
         let selection = tv.selectedRange()
-        let target: NSRange = selection.length > 0
+        let target: NSRange = (scope == .selection && selection.length > 0)
             ? selection
             : NSRange(location: 0, length: storage.length)
         let changes = SmartQuotes.convertInPlace(storage, range: target)

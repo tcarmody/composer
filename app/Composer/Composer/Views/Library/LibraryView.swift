@@ -4,6 +4,9 @@ struct LibraryView: View {
     @StateObject private var model: LibraryModel
     @EnvironmentObject private var app: AppState
 
+    enum Scope: Hashable { case active, archived }
+    @State private var scope: Scope = .active
+
     init(api: APIClient) {
         _model = StateObject(wrappedValue: LibraryModel(api: api))
     }
@@ -15,9 +18,22 @@ struct LibraryView: View {
         } detail: {
             ItemDetailView(model: model)
         }
+        .searchable(text: $model.query, prompt: "Search items")
+        .searchScopes($scope, activation: .onSearchPresentation) {
+            Text("Active").tag(Scope.active)
+            Text("Archived").tag(Scope.archived)
+        }
+        .onChange(of: model.query) { _, _ in
+            model.scheduleSearch()
+        }
+        .onChange(of: scope) { _, newValue in
+            model.showArchived = (newValue == .archived)
+            model.refreshList()
+        }
         .focusedSceneValue(\.refreshAction, RefreshAction {
             model.refreshList()
         })
+        .focusedSceneValue(\.archiveAction, currentArchiveAction)
         .onAppear {
             loadIfReady()
             consumePending()
@@ -28,6 +44,14 @@ struct LibraryView: View {
         .onChange(of: app.pendingItemSelection) { _, _ in
             consumePending()
         }
+    }
+
+    private var currentArchiveAction: ArchiveAction? {
+        guard case .loaded(let item) = model.detailState else { return nil }
+        return ArchiveAction(
+            title: item.isArchived ? "Unarchive Item" : "Archive Item",
+            perform: { model.toggleArchive(item) }
+        )
     }
 
     private func loadIfReady() {

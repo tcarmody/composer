@@ -23,6 +23,7 @@ struct MainView: View {
     private var staleBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
+                .accessibilityHidden(true)
             Text("Backend is running older code than this app. Restart it to pick up the latest.")
                 .font(.callout)
             Spacer()
@@ -35,6 +36,8 @@ struct MainView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color.yellow.opacity(0.25))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Backend out of date. Restart it to pick up the latest.")
     }
 
     private var mainSplit: some View {
@@ -56,12 +59,14 @@ struct MainView: View {
                 }
                 .toolbar {
                     ToolbarItem(placement: .principal) {
-                        Picker("Tab", selection: $app.selectedTab) {
+                        Picker("Mode", selection: $app.selectedTab) {
                             ForEach(NavTab.allCases) { tab in
                                 Label(tab.rawValue, systemImage: tab.systemImage).tag(tab)
                             }
                         }
                         .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .accessibilityLabel("Mode")
                     }
                     ToolbarItem(placement: .primaryAction) {
                         HealthBadge(status: app.health)
@@ -71,9 +76,10 @@ struct MainView: View {
                             Button {
                                 app.toggleDraftPanel()
                             } label: {
-                                Image(systemName: "sidebar.squares.right")
+                                Label("Show Draft Panel", systemImage: "sidebar.squares.right")
                             }
                             .help("Show Draft Panel (⌥⌘D)")
+                            .accessibilityLabel("Show Draft Panel")
                         }
                     }
                 }

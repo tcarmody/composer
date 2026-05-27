@@ -20,6 +20,8 @@ final class CollectionsModel: ObservableObject {
     @Published var listState: ListState = .idle
     @Published var detailState: DetailState = .empty
     @Published var selectedId: String?
+    @Published var query: String = ""
+    @Published var isCreating: Bool = false
 
     private let api: APIClient
 
@@ -139,6 +141,16 @@ final class CollectionsModel: ObservableObject {
             } catch {
                 self.detailState = .error(error.localizedDescription)
             }
+        }
+    }
+
+    func filteredCollections(_ collections: [Collection]) -> [Collection] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return collections }
+        return collections.filter { c in
+            if c.name.lowercased().contains(q) { return true }
+            if let d = c.description?.lowercased(), d.contains(q) { return true }
+            return false
         }
     }
 

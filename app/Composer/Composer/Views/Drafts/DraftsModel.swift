@@ -44,6 +44,7 @@ final class DraftsModel: ObservableObject {
     @Published var listState: ListState = .idle
     @Published var editorState: EditorState = .empty
     @Published var selectedId: String?
+    @Published var query: String = ""
     @Published var editorAttributed: NSAttributedString = NSAttributedString(string: "") {
         didSet { handleAttributedChange() }
     }
@@ -54,6 +55,7 @@ final class DraftsModel: ObservableObject {
     @Published var sources: [DraftSource] = []
     @Published var factCheckPhase: FactCheckPhase = .idle
     @Published var factCheckClaims: [FactCheckClaimState] = []
+    @Published var pendingDelete: Draft?
 
     private let api: APIClient
     private var autosaveTask: Task<Void, Never>?
@@ -228,6 +230,19 @@ final class DraftsModel: ObservableObject {
     func statusChanged() {
         guard case .editing(_, _, _) = editorState else { return }
         handleAttributedChange()
+    }
+
+    func requestDelete(_ draft: Draft) {
+        pendingDelete = draft
+    }
+
+    func filteredDrafts(_ drafts: [Draft]) -> [Draft] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return drafts }
+        return drafts.filter { draft in
+            if let t = draft.title?.lowercased(), t.contains(q) { return true }
+            return draft.body.lowercased().contains(q)
+        }
     }
 
     func runAssist(action: DraftAssistAction, selection: NSRange, selectionText: String?) {

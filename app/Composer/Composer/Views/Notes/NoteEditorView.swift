@@ -7,36 +7,46 @@ struct NoteEditorView: View {
     @StateObject private var commands = RichTextCommandsHolder()
     @State private var showLinkSheet = false
     @State private var linkURLDraft = ""
-    @State private var showDeleteConfirm = false
 
     var body: some View {
-        switch model.editorState {
-        case .empty:
-            ContentUnavailableView(
-                "Select a note",
-                systemImage: "note.text",
-                description: Text("Pick a note from the list, or create a new one.")
-            )
-        case .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .error(let msg):
-            ContentUnavailableView(
-                "Failed to load",
-                systemImage: "exclamationmark.triangle",
-                description: Text(msg)
-            )
-        case .editing(let note, _, _):
-            editor(note: note)
-                .sheet(isPresented: $showLinkSheet) { linkSheet }
-                .confirmationDialog(
-                    "Delete this note?",
-                    isPresented: $showDeleteConfirm
-                ) {
-                    Button("Delete", role: .destructive) { model.delete(note) }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    Text("The note will be removed permanently.")
-                }
+        Group {
+            switch model.editorState {
+            case .empty:
+                ContentUnavailableView(
+                    "Select a note",
+                    systemImage: "note.text",
+                    description: Text("Pick a note from the list, or create a new one.")
+                )
+            case .loading:
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .error(let msg):
+                ContentUnavailableView(
+                    "Failed to load",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(msg)
+                )
+            case .editing(let note, _, _):
+                editor(note: note)
+                    .sheet(isPresented: $showLinkSheet) { linkSheet }
+            }
+        }
+        .confirmationDialog(
+            "Delete this note?",
+            isPresented: Binding(
+                get: { model.pendingDelete != nil },
+                set: { if !$0 { model.pendingDelete = nil } }
+            ),
+            presenting: model.pendingDelete
+        ) { note in
+            Button("Delete", role: .destructive) {
+                model.delete(note)
+                model.pendingDelete = nil
+            }
+            Button("Cancel", role: .cancel) {
+                model.pendingDelete = nil
+            }
+        } message: { _ in
+            Text("The note will be removed permanently.")
         }
     }
 
@@ -65,6 +75,7 @@ struct NoteEditorView: View {
         .background(app.theme.backgroundColor)
         .foregroundStyle(app.theme.textColor, app.theme.secondaryTextColor)
         .tint(app.theme.accentColor)
+        .navigationSubtitle(model.isDirty ? "Unsaved changes" : "")
     }
 
     private func titleBar(note: Note) -> some View {
@@ -72,14 +83,15 @@ struct NoteEditorView: View {
             TextField("Untitled", text: $model.titleDraft, onEditingChanged: { _ in model.titleChanged() })
                 .textFieldStyle(.plain)
                 .font(.title2).bold()
+                .accessibilityLabel("Note title")
             Spacer()
-            Text(model.isDirty ? "Unsaved changes" : "Saved")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Button("Save") { model.save() }
-                .keyboardShortcut("s", modifiers: .command)
-                .disabled(!model.isDirty)
-            Button("Delete", role: .destructive) { showDeleteConfirm = true }
+            if model.isDirty {
+                Circle()
+                    .fill(Color.orange)
+                    .frame(width: 6, height: 6)
+                    .help("Unsaved changes")
+                    .accessibilityLabel("Unsaved changes")
+            }
         }
         .padding(16)
         .background(app.theme.chromeBackground)

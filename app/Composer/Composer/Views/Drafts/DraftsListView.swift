@@ -5,23 +5,16 @@ struct DraftsListView: View {
     @EnvironmentObject private var app: AppState
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Button {
-                    model.create()
-                } label: {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("New draft")
-                        Spacer()
+        content
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { model.create() } label: {
+                        Label("New Draft", systemImage: "square.and.pencil")
                     }
+                    .help("New Draft (⌘N)")
+                    .accessibilityLabel("New Draft")
                 }
-                .buttonStyle(.bordered)
             }
-            .padding(10)
-            Divider()
-            content
-        }
     }
 
     @ViewBuilder
@@ -36,24 +29,32 @@ struct DraftsListView: View {
                 .padding()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         case .loaded(let drafts):
-            if drafts.isEmpty {
+            let filtered = model.filteredDrafts(drafts)
+            if filtered.isEmpty {
                 ContentUnavailableView(
-                    "No drafts",
+                    model.query.isEmpty ? "No drafts" : "No matches",
                     systemImage: "doc.text",
-                    description: Text("Start one to write long-form.")
+                    description: Text(emptyMessage(allEmpty: drafts.isEmpty))
                 )
             } else {
                 List(selection: Binding(
                     get: { model.selectedId },
                     set: { model.select($0) }
                 )) {
-                    ForEach(drafts) { draft in
+                    ForEach(filtered) { draft in
                         DraftRow(draft: draft, density: app.listDensity).tag(draft.id)
                     }
                 }
                 .listStyle(.inset)
             }
         }
+    }
+
+    private func emptyMessage(allEmpty: Bool) -> String {
+        if !model.query.isEmpty {
+            return "No drafts match \"\(model.query)\"."
+        }
+        return allEmpty ? "Start one to write long-form." : "No drafts match your search."
     }
 }
 
@@ -81,6 +82,8 @@ private struct DraftRow: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, density.verticalPadding)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(displayTitle), \(draft.status.label)")
     }
 
     private var displayTitle: String {

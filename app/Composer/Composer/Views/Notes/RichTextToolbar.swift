@@ -27,6 +27,7 @@ struct RichTextToolbar: View {
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
+            .accessibilityLabel("Paragraph style")
 
             Divider().frame(height: 18)
 
@@ -35,17 +36,20 @@ struct RichTextToolbar: View {
             }
             .help("Bold · ⌘B")
             .keyboardShortcut("b", modifiers: .command)
+            .accessibilityLabel("Bold")
 
             Button(action: onItalic) {
                 Image(systemName: "italic")
             }
             .help("Italic · ⌘I")
             .keyboardShortcut("i", modifiers: .command)
+            .accessibilityLabel("Italic")
 
             Button(action: onCode) {
                 Image(systemName: "chevron.left.forwardslash.chevron.right")
             }
             .help("Inline code")
+            .accessibilityLabel("Inline code")
 
             Divider().frame(height: 18)
 
@@ -53,11 +57,13 @@ struct RichTextToolbar: View {
                 Image(systemName: "list.bullet")
             }
             .help("Bullet list")
+            .accessibilityLabel("Bullet list")
 
             Button(action: onNumbered) {
                 Image(systemName: "list.number")
             }
             .help("Numbered list")
+            .accessibilityLabel("Numbered list")
 
             Divider().frame(height: 18)
 
@@ -66,6 +72,7 @@ struct RichTextToolbar: View {
             }
             .help("Link · ⌘K")
             .keyboardShortcut("k", modifiers: .command)
+            .accessibilityLabel("Insert link")
 
             Spacer()
         }

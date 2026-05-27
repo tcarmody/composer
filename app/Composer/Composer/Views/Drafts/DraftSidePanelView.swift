@@ -26,7 +26,9 @@ struct DraftSidePanelView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Image(systemName: "doc.text").foregroundStyle(.secondary)
+            Image(systemName: "doc.text")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Text("Draft").font(.headline)
 
             if case .loaded(let drafts) = model.listState, !drafts.isEmpty {
@@ -50,6 +52,7 @@ struct DraftSidePanelView: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 .help("Switch draft")
+                .accessibilityLabel("Switch draft")
             }
 
             Spacer()
@@ -59,12 +62,14 @@ struct DraftSidePanelView: View {
             }
             .buttonStyle(.borderless)
             .help("New Draft")
+            .accessibilityLabel("New Draft")
 
             Button { app.toggleDraftPanel() } label: {
                 Image(systemName: "sidebar.right")
             }
             .buttonStyle(.borderless)
             .help("Hide Draft Panel (⌥⌘D)")
+            .accessibilityLabel("Hide Draft Panel")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -85,6 +90,7 @@ struct DraftSidePanelView: View {
             Image(systemName: "doc.text")
                 .font(.system(size: 32))
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Text("No current draft").font(.headline)
             Text("Start one to compose alongside your reading.")
                 .font(.caption)

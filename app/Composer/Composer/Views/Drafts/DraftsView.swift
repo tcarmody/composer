@@ -13,6 +13,10 @@ struct DraftsView: View {
         } detail: {
             DraftEditorView(model: model)
         }
+        .searchable(text: Binding(
+            get: { model.query },
+            set: { model.query = $0 }
+        ), prompt: "Search drafts")
         .focusedSceneValue(\.newItemAction, NewItemAction(title: "New Draft") {
             model.create()
         })

@@ -3,52 +3,44 @@ import SwiftUI
 struct CollectionsListView: View {
     @ObservedObject var model: CollectionsModel
     @EnvironmentObject private var app: AppState
-    @Binding var externalShowNew: Bool
-    @State private var isCreating = false
     @State private var newName = ""
 
     var body: some View {
-        VStack(spacing: 0) {
-            createBar
-            Divider()
-            list
-        }
-        .onChange(of: externalShowNew) { _, newValue in
-            if newValue {
-                isCreating = true
-                externalShowNew = false
+        list
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { model.isCreating = true } label: {
+                        Label("New Collection", systemImage: "plus.rectangle.on.rectangle")
+                    }
+                    .help("New Collection (⌘N)")
+                    .accessibilityLabel("New Collection")
+                }
             }
-        }
+            .sheet(isPresented: $model.isCreating, onDismiss: { newName = "" }) {
+                newCollectionSheet
+            }
     }
 
-    private var createBar: some View {
-        Group {
-            if isCreating {
-                HStack(spacing: 6) {
-                    TextField("Collection name", text: $newName, onCommit: submit)
-                        .textFieldStyle(.roundedBorder)
-                    Button("Add", action: submit)
-                        .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
-                    Button("Cancel") {
-                        isCreating = false
-                        newName = ""
-                    }
+    private var newCollectionSheet: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("New collection").font(.headline)
+            TextField("Collection name", text: $newName)
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: 320)
+                .onSubmit(submit)
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    model.isCreating = false
+                    newName = ""
                 }
-                .padding(10)
-            } else {
-                Button {
-                    isCreating = true
-                } label: {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("New collection")
-                        Spacer()
-                    }
-                }
-                .buttonStyle(.bordered)
-                .padding(10)
+                .keyboardShortcut(.cancelAction)
+                Button("Add") { submit() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
+        .padding(20)
     }
 
     @ViewBuilder
@@ -63,18 +55,19 @@ struct CollectionsListView: View {
                 .padding()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         case .loaded(let collections):
-            if collections.isEmpty {
+            let filtered = model.filteredCollections(collections)
+            if filtered.isEmpty {
                 ContentUnavailableView(
-                    "No collections",
+                    model.query.isEmpty ? "No collections" : "No matches",
                     systemImage: "rectangle.stack",
-                    description: Text("Create one to start gathering items and notes.")
+                    description: Text(emptyMessage(allEmpty: collections.isEmpty))
                 )
             } else {
                 List(selection: Binding(
                     get: { model.selectedId },
                     set: { model.select($0) }
                 )) {
-                    ForEach(collections) { c in
+                    ForEach(filtered) { c in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(c.name).font(.system(size: 13, weight: .medium))
                             Text("\(c.memberCount) item\(c.memberCount == 1 ? "" : "s")")
@@ -83,6 +76,8 @@ struct CollectionsListView: View {
                         }
                         .padding(.vertical, app.listDensity.verticalPadding)
                         .tag(c.id)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(c.name), \(c.memberCount) item\(c.memberCount == 1 ? "" : "s")")
                     }
                 }
                 .listStyle(.inset)
@@ -90,11 +85,18 @@ struct CollectionsListView: View {
         }
     }
 
+    private func emptyMessage(allEmpty: Bool) -> String {
+        if !model.query.isEmpty {
+            return "No collections match \"\(model.query)\"."
+        }
+        return allEmpty ? "Create one to start gathering items and notes." : "No collections match your search."
+    }
+
     private func submit() {
         let trimmed = newName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         model.create(name: trimmed)
-        isCreating = false
+        model.isCreating = false
         newName = ""
     }
 }

@@ -84,6 +84,7 @@ private struct CitationRow: View {
                 Image(systemName: icon)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
                 Text(citation.sourceTitle ?? "Untitled")
                     .font(.callout.weight(.semibold))
                     .lineLimit(2)
@@ -94,6 +95,7 @@ private struct CitationRow: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Open source")
+                .accessibilityLabel("Open source")
             }
             Text(citation.snippet)
                 .font(.caption)

@@ -29,11 +29,13 @@ final class NotesModel: ObservableObject {
     @Published var listState: ListState = .idle
     @Published var editorState: EditorState = .empty
     @Published var selectedId: String?
+    @Published var query: String = ""
     @Published var editorAttributed: NSAttributedString = NSAttributedString(string: "") {
         didSet { handleAttributedChange() }
     }
     @Published var isDirty: Bool = false
     @Published var titleDraft: String = ""
+    @Published var pendingDelete: Note?
 
     private let api: APIClient
     private var autosaveTask: Task<Void, Never>?
@@ -174,5 +176,18 @@ final class NotesModel: ObservableObject {
     func titleChanged() {
         guard case .editing(_, _, _) = editorState else { return }
         handleAttributedChange()
+    }
+
+    func requestDelete(_ note: Note) {
+        pendingDelete = note
+    }
+
+    func filteredNotes(_ notes: [Note]) -> [Note] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return notes }
+        return notes.filter { note in
+            if let t = note.title?.lowercased(), t.contains(q) { return true }
+            return note.body.lowercased().contains(q)
+        }
     }
 }

@@ -2,47 +2,40 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var app: AppState
+    @AppStorage("settingsSelectedTab") private var selectedTab: SettingsTab = .general
+
+    enum SettingsTab: String, Hashable {
+        case general, ai, appearance, editor
+    }
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            GeneralSettingsPane()
+                .tabItem { Label("General", systemImage: "gear") }
+                .tag(SettingsTab.general)
+
+            AISettingsPane()
+                .tabItem { Label("AI", systemImage: "sparkles") }
+                .tag(SettingsTab.ai)
+
+            AppearanceSettingsPane()
+                .tabItem { Label("Appearance", systemImage: "paintpalette") }
+                .tag(SettingsTab.appearance)
+
+            EditorSettingsPane()
+                .tabItem { Label("Editor", systemImage: "square.and.pencil") }
+                .tag(SettingsTab.editor)
+        }
+        .frame(width: 520, height: 540)
+        .environmentObject(app)
+    }
+}
+
+// MARK: - General (Backend + API Key)
+
+private struct GeneralSettingsPane: View {
+    @EnvironmentObject private var app: AppState
     @State private var draftKey: String = ""
-    @State private var reindexState: ReindexState = .idle
-    @State private var llmKeys: [String: LLMKeyStatus] = [:]
-    @State private var keyDrafts: [String: String] = [:]
-    @State private var llmKeysWorking: Bool = false
-    @State private var llmKeysError: String?
-
-    private struct LLMKeyDef {
-        let name: String
-        let label: String
-        let placeholder: String
-        let description: String
-    }
-
-    private let llmKeyDefs: [LLMKeyDef] = [
-        .init(
-            name: "anthropic",
-            label: "Anthropic",
-            placeholder: "sk-ant-…",
-            description: "Powers draft Assist, item summaries, and Ask chat."
-        ),
-        .init(
-            name: "openai",
-            label: "OpenAI",
-            placeholder: "sk-…",
-            description: "Optional. Reserved for OpenAI-backed features."
-        ),
-        .init(
-            name: "voyage",
-            label: "Voyage",
-            placeholder: "pa-…",
-            description: "Powers vector search embeddings."
-        ),
-    ]
-
-    enum ReindexState: Equatable {
-        case idle
-        case running
-        case done(counts: [String: Int], at: Date)
-        case error(String)
-    }
 
     var body: some View {
         Form {
@@ -114,7 +107,81 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+        .formStyle(.grouped)
+        .onAppear { draftKey = app.apiKey }
+    }
 
+    private var canStart: Bool {
+        switch app.supervisor.status {
+        case .stopped, .failed: return true
+        default: return false
+        }
+    }
+
+    private var canStop: Bool {
+        if case .running = app.supervisor.status { return true }
+        return false
+    }
+
+    private var processStatusColor: Color {
+        switch app.supervisor.status {
+        case .running: return .green
+        case .externallyManaged: return .blue
+        case .starting: return .secondary
+        case .stopped: return .secondary
+        case .failed: return .red
+        }
+    }
+}
+
+// MARK: - AI (LLM Keys + Index)
+
+private struct AISettingsPane: View {
+    @EnvironmentObject private var app: AppState
+    @State private var reindexState: ReindexState = .idle
+    @State private var llmKeys: [String: LLMKeyStatus] = [:]
+    @State private var keyDrafts: [String: String] = [:]
+    @State private var llmKeysWorking: Bool = false
+    @State private var llmKeysError: String?
+
+    private struct LLMKeyDef {
+        let name: String
+        let label: String
+        let placeholder: String
+        let description: String
+    }
+
+    private let llmKeyDefs: [LLMKeyDef] = [
+        .init(
+            name: "anthropic",
+            label: "Anthropic",
+            placeholder: "sk-ant-…",
+            description: "Powers draft Assist, item summaries, and Ask chat."
+        ),
+        .init(
+            name: "openai",
+            label: "OpenAI",
+            placeholder: "sk-…",
+            description: "Optional. Reserved for OpenAI-backed features."
+        ),
+        .init(
+            name: "voyage",
+            label: "Voyage",
+            placeholder: "pa-…",
+            description: "Powers vector search embeddings."
+        ),
+    ]
+
+    enum ReindexState: Equatable {
+        case idle
+        case running
+        case done(counts: [String: Int], at: Date)
+        case error(String)
+    }
+
+    var body: some View {
+        Form {
             Section("LLM Keys") {
                 ForEach(llmKeyDefs, id: \.name) { def in
                     llmKeyRow(def)
@@ -125,37 +192,6 @@ struct SettingsView: View {
                         .foregroundStyle(.red)
                 }
                 Text("Stored on the backend at data/secrets.json with mode 0600. UI-set keys override the corresponding environment variables.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Appearance") {
-                Picker("Theme", selection: $app.theme) {
-                    ForEach(AppTheme.allCases) { t in
-                        Text(t.label).tag(t)
-                    }
-                }
-                Text(app.theme.description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Picker("List density", selection: $app.listDensity) {
-                    ForEach(ListDensity.allCases) { d in
-                        Text(d.label).tag(d)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                Picker("Typeface", selection: $app.typeface) {
-                    ForEach(AppTypeface.allCases) { f in
-                        Text(f.label).tag(f)
-                    }
-                }
-            }
-
-            Section("Editor") {
-                Toggle("Smart quotes", isOn: $app.smartQuotesAutoConvert)
-                Text("Convert straight quotes to curly quotes when a note, story, or other document is sent to a draft.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -181,11 +217,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 640)
-        .onAppear {
-            draftKey = app.apiKey
-            loadLLMKeys()
-        }
+        .onAppear { loadLLMKeys() }
     }
 
     @ViewBuilder
@@ -289,28 +321,6 @@ struct SettingsView: View {
         }
     }
 
-    private var canStart: Bool {
-        switch app.supervisor.status {
-        case .stopped, .failed: return true
-        default: return false
-        }
-    }
-
-    private var canStop: Bool {
-        if case .running = app.supervisor.status { return true }
-        return false
-    }
-
-    private var processStatusColor: Color {
-        switch app.supervisor.status {
-        case .running: return .green
-        case .externallyManaged: return .blue
-        case .starting: return .secondary
-        case .stopped: return .secondary
-        case .failed: return .red
-        }
-    }
-
     @ViewBuilder
     private var reindexStatusView: some View {
         switch reindexState {
@@ -354,6 +364,63 @@ struct SettingsView: View {
                 reindexState = .error(error.localizedDescription)
             }
         }
+    }
+}
+
+// MARK: - Appearance
+
+private struct AppearanceSettingsPane: View {
+    @EnvironmentObject private var app: AppState
+
+    var body: some View {
+        Form {
+            Section("Theme") {
+                Picker("Theme", selection: $app.theme) {
+                    ForEach(AppTheme.allCases) { t in
+                        Text(t.label).tag(t)
+                    }
+                }
+                Text(app.theme.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("List") {
+                Picker("Density", selection: $app.listDensity) {
+                    ForEach(ListDensity.allCases) { d in
+                        Text(d.label).tag(d)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Section("Type") {
+                Picker("Typeface", selection: $app.typeface) {
+                    ForEach(AppTypeface.allCases) { f in
+                        Text(f.label).tag(f)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - Editor
+
+private struct EditorSettingsPane: View {
+    @EnvironmentObject private var app: AppState
+
+    var body: some View {
+        Form {
+            Section("Smart Quotes") {
+                Toggle("Convert straight quotes automatically", isOn: $app.smartQuotesAutoConvert)
+                Text("When a note, story, or other document is sent to a draft, straight quotes (\") are converted to curly quotes (\u{201C}\u{201D}).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 

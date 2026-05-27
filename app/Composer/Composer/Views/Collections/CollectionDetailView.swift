@@ -3,38 +3,71 @@ import SwiftUI
 struct CollectionDetailView: View {
     @ObservedObject var model: CollectionsModel
     @EnvironmentObject private var app: AppState
-    @State private var showDeleteConfirm = false
     @State private var pendingDelete: Collection?
     @State private var isCompiling = false
 
     var body: some View {
-        switch model.detailState {
-        case .empty:
-            ContentUnavailableView(
-                "Select a collection",
-                systemImage: "rectangle.stack",
-                description: Text("Pick a collection, or create a new one.")
-            )
-        case .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .error(let msg):
-            ContentUnavailableView(
-                "Failed to load",
-                systemImage: "exclamationmark.triangle",
-                description: Text(msg)
-            )
-        case .loaded(let outline):
-            outlineView(outline)
-                .confirmationDialog(
-                    "Delete this collection?",
-                    isPresented: $showDeleteConfirm,
-                    presenting: pendingDelete
-                ) { c in
-                    Button("Delete", role: .destructive) { model.delete(c) }
-                    Button("Cancel", role: .cancel) {}
-                } message: { c in
-                    Text("\"\(c.name)\" and its ordering will be removed. Items and notes themselves are preserved.")
+        Group {
+            switch model.detailState {
+            case .empty:
+                ContentUnavailableView(
+                    "Select a collection",
+                    systemImage: "rectangle.stack",
+                    description: Text("Pick a collection, or create a new one.")
+                )
+            case .loading:
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .error(let msg):
+                ContentUnavailableView(
+                    "Failed to load",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(msg)
+                )
+            case .loaded(let outline):
+                outlineView(outline)
+            }
+        }
+        .confirmationDialog(
+            "Delete this collection?",
+            isPresented: Binding(
+                get: { pendingDelete != nil },
+                set: { if !$0 { pendingDelete = nil } }
+            ),
+            presenting: pendingDelete
+        ) { c in
+            Button("Delete", role: .destructive) {
+                model.delete(c)
+                pendingDelete = nil
+            }
+            Button("Cancel", role: .cancel) { pendingDelete = nil }
+        } message: { c in
+            Text("\"\(c.name)\" and its ordering will be removed. Items and notes themselves are preserved.")
+        }
+        .toolbar { detailToolbar }
+        .focusedSceneValue(\.deleteAction, currentDeleteAction)
+    }
+
+    private var currentDeleteAction: DeleteAction? {
+        guard case .loaded(let outline) = model.detailState else { return nil }
+        return DeleteAction(title: "Delete Collection", isEnabled: true) {
+            pendingDelete = outline.collection
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var detailToolbar: some ToolbarContent {
+        if case .loaded(let outline) = model.detailState {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button("Summaries only") { compile(full: false) }
+                    Button("Include full content") { compile(full: true) }
+                } label: {
+                    Label("Compile to Draft", systemImage: "doc.text")
                 }
+                .disabled(isCompiling || outline.collection.memberCount == 0)
+                .help("Compile this collection into a new draft")
+                .accessibilityLabel("Compile to Draft")
+            }
         }
     }
 
@@ -55,31 +88,16 @@ struct CollectionDetailView: View {
     }
 
     private func header(_ collection: Collection) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(collection.name).font(.title2).bold()
-                if let desc = collection.description, !desc.isEmpty {
-                    Text(desc).font(.subheadline).foregroundStyle(.secondary)
-                }
-                Text("\(collection.memberCount) item\(collection.memberCount == 1 ? "" : "s")")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(collection.name).font(.title2).bold()
+            if let desc = collection.description, !desc.isEmpty {
+                Text(desc).font(.subheadline).foregroundStyle(.secondary)
             }
-            Spacer()
-            Menu {
-                Button("Summaries only") { compile(full: false) }
-                Button("Include full content") { compile(full: true) }
-            } label: {
-                Label("Compile to Draft", systemImage: "doc.text")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .disabled(isCompiling || collection.memberCount == 0)
-            Button("Delete", role: .destructive) {
-                pendingDelete = collection
-                showDeleteConfirm = true
-            }
+            Text("\(collection.memberCount) item\(collection.memberCount == 1 ? "" : "s")")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
     }
 
@@ -142,6 +160,7 @@ private struct OutlineNodeRow: View {
             }
             .buttonStyle(.plain)
             .help("Remove from collection")
+            .accessibilityLabel("Remove from collection")
         }
         .padding(.vertical, 4)
     }

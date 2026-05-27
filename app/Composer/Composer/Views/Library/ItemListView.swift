@@ -8,37 +8,17 @@ struct ItemListView: View {
     @State private var showDeleteConfirm = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            filterBar
-            Divider()
-            content
-        }
-        .confirmationDialog(
-            "Delete this item?",
-            isPresented: $showDeleteConfirm,
-            presenting: pendingDelete
-        ) { item in
-            Button("Delete", role: .destructive) { model.delete(id: item.id) }
-            Button("Cancel", role: .cancel) {}
-        } message: { item in
-            Text("\"\(item.title)\" will be permanently removed.")
-        }
-    }
-
-    private var filterBar: some View {
-        VStack(spacing: 8) {
-            TextField("Search items…", text: $model.query)
-                .textFieldStyle(.roundedBorder)
-                .onChange(of: model.query) { _, _ in model.scheduleSearch() }
-
-            Picker("", selection: $model.showArchived) {
-                Text("Active").tag(false)
-                Text("Archived").tag(true)
+        content
+            .confirmationDialog(
+                "Delete this item?",
+                isPresented: $showDeleteConfirm,
+                presenting: pendingDelete
+            ) { item in
+                Button("Delete", role: .destructive) { model.delete(id: item.id) }
+                Button("Cancel", role: .cancel) {}
+            } message: { item in
+                Text("\"\(item.title)\" will be permanently removed.")
             }
-            .pickerStyle(.segmented)
-            .onChange(of: model.showArchived) { _, _ in model.refreshList() }
-        }
-        .padding(10)
     }
 
     @ViewBuilder
@@ -180,6 +160,15 @@ private struct ItemRowView: View {
             }
         }
         .padding(.vertical, density.verticalPadding)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityDescription)
+    }
+
+    private var accessibilityDescription: String {
+        var parts: [String] = [item.title]
+        if let author = item.author, !author.isEmpty { parts.append(author) }
+        if item.isArchived { parts.append("archived") }
+        return parts.joined(separator: ", ")
     }
 }
 

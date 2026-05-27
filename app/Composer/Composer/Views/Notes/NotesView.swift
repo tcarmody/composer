@@ -15,12 +15,15 @@ struct NotesView: View {
         } detail: {
             NoteEditorView(model: model)
         }
+        .searchable(text: $model.query, prompt: "Search notes")
         .focusedSceneValue(\.newItemAction, NewItemAction(title: "New Note") {
             model.create()
         })
         .focusedSceneValue(\.refreshAction, RefreshAction {
             model.refreshList()
         })
+        .focusedSceneValue(\.saveAction, currentSaveAction)
+        .focusedSceneValue(\.deleteAction, currentDeleteAction)
         .onAppear {
             loadIfReady()
             consumePending()
@@ -33,6 +36,18 @@ struct NotesView: View {
         }
         .onChange(of: app.typeface) { _, _ in
             model.reloadEditorTypeface()
+        }
+    }
+
+    private var currentSaveAction: SaveAction? {
+        guard case .editing = model.editorState else { return nil }
+        return SaveAction(isEnabled: model.isDirty) { model.save() }
+    }
+
+    private var currentDeleteAction: DeleteAction? {
+        guard case .editing(let note, _, _) = model.editorState else { return nil }
+        return DeleteAction(title: "Delete Note", isEnabled: true) {
+            model.requestDelete(note)
         }
     }
 

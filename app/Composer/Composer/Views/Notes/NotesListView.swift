@@ -5,23 +5,16 @@ struct NotesListView: View {
     @EnvironmentObject private var app: AppState
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Button {
-                    model.create()
-                } label: {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("New note")
-                        Spacer()
+        content
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { model.create() } label: {
+                        Label("New Note", systemImage: "square.and.pencil")
                     }
+                    .help("New Note (⌘N)")
+                    .accessibilityLabel("New Note")
                 }
-                .buttonStyle(.bordered)
             }
-            .padding(10)
-            Divider()
-            content
-        }
     }
 
     @ViewBuilder
@@ -36,24 +29,32 @@ struct NotesListView: View {
                 .padding()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         case .loaded(let notes):
-            if notes.isEmpty {
+            let filtered = model.filteredNotes(notes)
+            if filtered.isEmpty {
                 ContentUnavailableView(
-                    "No notes",
+                    model.query.isEmpty ? "No notes" : "No matches",
                     systemImage: "note.text",
-                    description: Text("Create one to start writing.")
+                    description: Text(emptyMessage(allEmpty: notes.isEmpty))
                 )
             } else {
                 List(selection: Binding(
                     get: { model.selectedId },
                     set: { model.select($0) }
                 )) {
-                    ForEach(notes) { note in
+                    ForEach(filtered) { note in
                         NoteRow(note: note, density: app.listDensity).tag(note.id)
                     }
                 }
                 .listStyle(.inset)
             }
         }
+    }
+
+    private func emptyMessage(allEmpty: Bool) -> String {
+        if !model.query.isEmpty {
+            return "No notes match \"\(model.query)\"."
+        }
+        return allEmpty ? "Create one to start writing." : "No notes match your search."
     }
 }
 
@@ -77,6 +78,8 @@ private struct NoteRow: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, density.verticalPadding)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(displayTitle)
     }
 
     private var displayTitle: String {

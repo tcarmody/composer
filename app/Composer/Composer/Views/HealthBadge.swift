@@ -8,11 +8,14 @@ struct HealthBadge: View {
             Circle()
                 .fill(dotColor)
                 .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .help(tooltip)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Backend status: \(label)")
     }
 
     private var dotColor: Color {
