@@ -251,7 +251,7 @@ class DraftSourceListResponse(BaseModel):
     sources: list[DraftSourceResponse]
 
 
-AssistAction = Literal["rewrite", "expand", "summarize", "tighten"]
+AssistAction = Literal["rewrite", "expand", "summarize", "tighten", "audio"]
 
 
 class DraftAssistRequest(BaseModel):

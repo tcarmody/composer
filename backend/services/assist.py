@@ -12,7 +12,7 @@ import httpx
 from ..config import config
 from . import secret_store
 
-AssistAction = Literal["rewrite", "expand", "summarize", "tighten"]
+AssistAction = Literal["rewrite", "expand", "summarize", "tighten", "audio"]
 
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 DEFAULT_MODEL = "claude-sonnet-4-6"
@@ -34,6 +34,36 @@ _ACTION_PROMPTS: dict[str, str] = {
     "tighten": (
         "Tighten the passage: cut hedging, redundancy, and throat-clearing. "
         "Preserve meaning and the author's voice."
+    ),
+    "audio": (
+        "Rewrite the passage as a script for a human to read aloud in a recording. "
+        "Preserve the intelligence, accuracy, and substance, but loosen the "
+        "register: favor contractions, shorter sentences, and natural spoken "
+        "cadence over written formality. The voice is an expert speaking "
+        "familiarly with an attentive student — warm, pedagogical, lightly "
+        "conversational, never folksy or glib. Match the source word count "
+        "closely — within about ten percent. Sentence count may go up if the "
+        "sentences are correspondingly shorter; what matters is that the total "
+        "word count holds. Do not pad with explanatory sentences, transitional "
+        "phrases, or bridging examples — this is the main failure mode. Reduce "
+        "parenthetical asides and em-dash interjections by folding them into the "
+        "surrounding prose or splitting them into short sentences, without adding "
+        "bridge words to stitch the result. Do not introduce phrases like \"This "
+        "is why,\" \"Put another way,\" or \"Consider\" where the source doesn't "
+        "already turn the corner that way; where a transition is needed, keep it "
+        "short (\"so,\" \"but,\" \"and\"). Round figures and percentages to at "
+        "most two significant digits and hedge them with \"about,\" \"roughly,\" "
+        "\"a little over,\" or \"nearly\" (e.g., 47.3% → about 47 percent; $1,284 "
+        "→ roughly thirteen hundred dollars; 2.718 → around two-point-seven). "
+        "Spell out symbols and units the way a reader would say them (% → "
+        "percent, $ → dollars, & → and). Expand uncommon acronyms on first "
+        "mention. Italicize the words and short phrases the reader should lean "
+        "on for emphasis — sparingly, two or three per paragraph at most, on the "
+        "load-bearing term, not the whole clause. Avoid colloquial signposts like "
+        "\"here's the thing\" or \"and here's why.\" Strip bracketed citations, "
+        "footnote markers, and anything else that reads as visual furniture. Do "
+        "not add new facts, examples, or opinions; do not change conclusions. "
+        "Return prose only — no headers, no bullet lists, no stage directions."
     ),
 }
 

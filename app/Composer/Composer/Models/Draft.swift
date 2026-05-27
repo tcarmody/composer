@@ -37,6 +37,7 @@ enum DraftAssistAction: String, Codable, CaseIterable {
     case expand
     case summarize
     case tighten
+    case audio
 
     var label: String {
         switch self {
@@ -44,6 +45,7 @@ enum DraftAssistAction: String, Codable, CaseIterable {
         case .expand: return "Expand"
         case .summarize: return "Summarize"
         case .tighten: return "Tighten"
+        case .audio: return "Audio"
         }
     }
 
@@ -53,6 +55,7 @@ enum DraftAssistAction: String, Codable, CaseIterable {
         case .expand: return "Expand with more detail and examples"
         case .summarize: return "Summarize in one tight paragraph"
         case .tighten: return "Cut hedging and filler"
+        case .audio: return "Rewrite as a script to be read aloud"
         }
     }
 }
