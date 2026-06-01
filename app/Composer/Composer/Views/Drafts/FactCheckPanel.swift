@@ -12,7 +12,10 @@ struct FactCheckPanel: View {
             header
             Divider()
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
+                // Plain VStack, not LazyVStack: the claim list is small, and a
+                // LazyVStack here self-invalidates its item-phase cache during
+                // sizeThatFits (propagate_dirty), causing an infinite relayout loop.
+                VStack(alignment: .leading, spacing: 8) {
                     if case .error(let msg) = model.factCheckPhase {
                         errorBanner(msg)
                     }
