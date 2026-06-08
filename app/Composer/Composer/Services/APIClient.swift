@@ -40,7 +40,7 @@ enum APIError: LocalizedError {
 
 final class APIClient {
     /// Default cloud backend. Update if the Railway service URL differs.
-    static let cloudBaseURLString = "https://composer-production.up.railway.app"
+    static let cloudBaseURLString = "https://composer.up.railway.app"
     /// UserDefaults key persisting the user-chosen backend URL.
     static let baseURLDefaultsKey = "COMPOSER_BASE_URL"
 
