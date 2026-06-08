@@ -54,10 +54,34 @@ final class AppState: ObservableObject {
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
         Task { [weak self] in
-            await self?.supervisor.start()
-            await self?.refreshHealth()
+            guard let self else { return }
+            // Only manage a local Python process when pointed at localhost.
+            if !self.api.isRemote {
+                await self.supervisor.start()
+            }
+            await self.refreshHealth()
         }
         startHealthPolling()
+    }
+
+    /// Update the backend base URL, persist it, and re-evaluate the local
+    /// supervisor + health. Ignores input that isn't a valid http(s) URL.
+    func setBaseURL(_ urlString: String) {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed), url.scheme != nil, url.host != nil else { return }
+        UserDefaults.standard.set(trimmed, forKey: APIClient.baseURLDefaultsKey)
+        api.baseURL = url
+        expectedCommit = nil  // reset stale tracking for the new target
+        objectWillChange.send()
+        Task { [weak self] in
+            guard let self else { return }
+            if self.api.isRemote {
+                self.supervisor.stop()
+            } else {
+                await self.supervisor.start()
+            }
+            await self.refreshHealth()
+        }
     }
 
     func setAPIKey(_ key: String) {
@@ -172,6 +196,12 @@ final class AppState: ObservableObject {
     }
 
     private func checkStale(against backendCommit: String?) async {
+        // The local-git-HEAD comparison is only meaningful against a backend we
+        // spawned from this repo; a cloud backend is never "stale" by that rule.
+        guard !api.isRemote else {
+            backendStale = false
+            return
+        }
         if expectedCommit == nil {
             expectedCommit = await readLocalCommit(repo: supervisor.projectRootPath)
         }

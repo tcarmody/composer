@@ -36,58 +36,73 @@ struct SettingsView: View {
 private struct GeneralSettingsPane: View {
     @EnvironmentObject private var app: AppState
     @State private var draftKey: String = ""
+    @State private var draftBaseURL: String = ""
 
     var body: some View {
         Form {
             Section("Backend") {
                 LabeledContent("Base URL") {
-                    Text(app.api.baseURL.absoluteString)
-                        .foregroundStyle(.secondary)
+                    HStack {
+                        TextField("https://…", text: $draftBaseURL)
+                            .textFieldStyle(.roundedBorder)
+                        Button("Save") {
+                            app.setBaseURL(draftBaseURL)
+                        }
+                        .disabled(draftBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                            == app.api.baseURL.absoluteString)
+                    }
                 }
                 LabeledContent("Status") {
                     HealthBadge(status: app.health)
                 }
-                LabeledContent("Process") {
-                    Text(app.supervisor.status.shortLabel)
-                        .foregroundStyle(processStatusColor)
-                }
-                LabeledContent("Project root") {
-                    Text(app.supervisor.projectRootPath)
+
+                if app.api.isRemote {
+                    Text("Connected to a remote backend. The local Python process isn't managed from here.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                HStack {
-                    Button("Start") {
-                        Task { await app.supervisor.start() }
+                } else {
+                    LabeledContent("Process") {
+                        Text(app.supervisor.status.shortLabel)
+                            .foregroundStyle(processStatusColor)
                     }
-                    .disabled(!canStart)
-                    Button("Stop") {
-                        app.supervisor.stop()
+                    LabeledContent("Project root") {
+                        Text(app.supervisor.projectRootPath)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     }
-                    .disabled(!canStop)
-                    Button("Restart") {
-                        app.supervisor.restart()
+                    HStack {
+                        Button("Start") {
+                            Task { await app.supervisor.start() }
+                        }
+                        .disabled(!canStart)
+                        Button("Stop") {
+                            app.supervisor.stop()
+                        }
+                        .disabled(!canStop)
+                        Button("Restart") {
+                            app.supervisor.restart()
+                        }
+                        .disabled(app.supervisor.status == .starting)
                     }
-                    .disabled(app.supervisor.status == .starting)
-                }
-                if case .failed(let msg) = app.supervisor.status {
-                    Label(msg, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-                if !app.supervisor.recentLog.isEmpty {
-                    ScrollView {
-                        Text(app.supervisor.recentLog)
-                            .font(.system(.caption, design: .monospaced))
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(6)
+                    if case .failed(let msg) = app.supervisor.status {
+                        Label(msg, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.red)
                     }
-                    .frame(height: 120)
-                    .background(Color(nsColor: .textBackgroundColor))
-                    .cornerRadius(4)
+                    if !app.supervisor.recentLog.isEmpty {
+                        ScrollView {
+                            Text(app.supervisor.recentLog)
+                                .font(.system(.caption, design: .monospaced))
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(6)
+                        }
+                        .frame(height: 120)
+                        .background(Color(nsColor: .textBackgroundColor))
+                        .cornerRadius(4)
+                    }
                 }
             }
 
@@ -109,7 +124,10 @@ private struct GeneralSettingsPane: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { draftKey = app.apiKey }
+        .onAppear {
+            draftKey = app.apiKey
+            draftBaseURL = app.api.baseURL.absoluteString
+        }
     }
 
     private var canStart: Bool {

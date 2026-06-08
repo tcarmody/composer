@@ -39,15 +39,36 @@ enum APIError: LocalizedError {
 }
 
 final class APIClient {
+    /// Default cloud backend. Update if the Railway service URL differs.
+    static let cloudBaseURLString = "https://composer-production.up.railway.app"
+    /// UserDefaults key persisting the user-chosen backend URL.
+    static let baseURLDefaultsKey = "COMPOSER_BASE_URL"
+
+    /// Resolves the configured base URL: persisted value, else cloud default.
+    static func resolveBaseURL() -> URL {
+        if let stored = UserDefaults.standard.string(forKey: baseURLDefaultsKey),
+           !stored.isEmpty, let url = URL(string: stored), url.host != nil {
+            return url
+        }
+        return URL(string: cloudBaseURLString)!
+    }
+
     var baseURL: URL
     var apiKey: String?
     private let session: URLSession
 
+    /// True when the backend is not on this machine — i.e. we shouldn't try to
+    /// supervise a local Python process.
+    var isRemote: Bool {
+        guard let host = baseURL.host else { return true }
+        return !(host == "127.0.0.1" || host == "localhost" || host == "::1")
+    }
+
     init(
-        baseURL: URL = URL(string: "http://127.0.0.1:5006")!,
+        baseURL: URL? = nil,
         session: URLSession = .shared
     ) {
-        self.baseURL = baseURL
+        self.baseURL = baseURL ?? APIClient.resolveBaseURL()
         self.session = session
     }
 
