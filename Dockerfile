@@ -1,5 +1,8 @@
 # Composer backend — FastAPI served by uvicorn.
-FROM python:3.12-slim
+# Must match local dev (3.14): the codebase relies on PEP 649 deferred
+# annotation evaluation, so annotations like list[tuple[MemberType, str]]
+# only import cleanly on 3.14+. Older Pythons evaluate them eagerly and crash.
+FROM python:3.14-slim
 
 # curl is used by the container/platform health check; lxml/trafilatura ship
 # manylinux wheels for cp312 so no compiler toolchain is needed.
