@@ -2,6 +2,7 @@
 Composer API Server.
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -28,7 +29,9 @@ from .routes import (
     notes_router,
     search_router,
     settings_router,
+    sync_router,
 )
+from .services.sync import sync_worker
 
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL, logging.INFO),
@@ -40,7 +43,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if state.db is None:
-        state.db = Database(config.DB_PATH)
+        state.db = Database(
+            config.DB_PATH, track_sync=bool(config.SYNC_TARGET_URL)
+        )
         state.items = ItemRepository(state.db)
         state.notes = NotesRepository(state.db)
         state.collections = CollectionsRepository(state.db)
@@ -49,7 +54,14 @@ async def lifespan(app: FastAPI):
         logger.info(
             "Database ready at %s (schema v%d)", config.DB_PATH, state.db.version()
         )
-    yield
+    sync_task: asyncio.Task | None = None
+    if config.SYNC_TARGET_URL:
+        sync_task = asyncio.create_task(sync_worker())
+    try:
+        yield
+    finally:
+        if sync_task is not None:
+            sync_task.cancel()
 
 
 app = FastAPI(
@@ -68,6 +80,7 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(ingest_router)
+app.include_router(sync_router)
 app.include_router(items_router)
 app.include_router(notes_router)
 app.include_router(drafts_router)

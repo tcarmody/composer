@@ -11,12 +11,13 @@ from pathlib import Path
 from typing import Iterator
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 class Database:
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path, *, track_sync: bool = False):
         self.db_path = db_path
+        self.track_sync = track_sync
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_schema()
 
@@ -25,6 +26,9 @@ class Database:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA synchronous = NORMAL")
+        conn.execute("PRAGMA busy_timeout = 5000")
         try:
             yield conn
             conn.commit()
@@ -200,11 +204,40 @@ class Database:
                     INSERT INTO chunks_fts(rowid, content)
                     VALUES (new.rowid, new.content);
                 END;
+
+                CREATE TABLE IF NOT EXISTS sync_outbox (
+                    seq         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    entity_type TEXT NOT NULL
+                                CHECK (entity_type IN
+                                       ('item', 'note', 'draft', 'collection')),
+                    entity_id   TEXT NOT NULL,
+                    op          TEXT NOT NULL CHECK (op IN ('upsert', 'delete')),
+                    queued_at   TEXT NOT NULL DEFAULT (datetime('now'))
+                );
             """)
             conn.execute(
                 "INSERT OR REPLACE INTO schema_meta(key, value) VALUES (?, ?)",
                 ("version", str(SCHEMA_VERSION)),
             )
+
+    def enqueue_sync(
+        self,
+        conn: sqlite3.Connection,
+        entity_type: str,
+        entity_id: str,
+        op: str = "upsert",
+    ) -> None:
+        """
+        Record a mutation in the sync outbox, inside the caller's
+        transaction so the entry rolls back with the write it tracks.
+        No-op unless this instance pushes to a sync target (track_sync).
+        """
+        if not self.track_sync:
+            return
+        conn.execute(
+            "INSERT INTO sync_outbox (entity_type, entity_id, op) VALUES (?, ?, ?)",
+            (entity_type, entity_id, op),
+        )
 
     def version(self) -> int:
         with self._conn() as conn:

@@ -96,6 +96,7 @@ class ChunksRepository:
                         model,
                     ),
                 )
+            self.db.enqueue_sync(conn, source_type, source_id)
             return len(chunks)
 
     def delete_for_source(
@@ -106,6 +107,8 @@ class ChunksRepository:
                 "DELETE FROM chunks WHERE source_type = ? AND source_id = ?",
                 (source_type, source_id),
             )
+            if cur.rowcount > 0:
+                self.db.enqueue_sync(conn, source_type, source_id)
             return cur.rowcount
 
     def list_for_source(

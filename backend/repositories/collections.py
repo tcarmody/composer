@@ -92,6 +92,7 @@ class CollectionsRepository:
                 "INSERT INTO collections (id, name, description) VALUES (?, ?, ?)",
                 (collection_id, name, description),
             )
+            self.db.enqueue_sync(conn, "collection", collection_id)
         return self.get(collection_id)  # type: ignore[return-value]
 
     def get(self, collection_id: str) -> Collection | None:
@@ -140,9 +141,11 @@ class CollectionsRepository:
             return self.get(collection_id)
         params.append(collection_id)
         with self.db.conn() as conn:
-            conn.execute(
+            cur = conn.execute(
                 f"UPDATE collections SET {', '.join(sets)} WHERE id = ?", params
             )
+            if cur.rowcount > 0:
+                self.db.enqueue_sync(conn, "collection", collection_id)
         return self.get(collection_id)
 
     def delete(self, collection_id: str) -> bool:
@@ -150,6 +153,8 @@ class CollectionsRepository:
             cur = conn.execute(
                 "DELETE FROM collections WHERE id = ?", (collection_id,)
             )
+            if cur.rowcount > 0:
+                self.db.enqueue_sync(conn, "collection", collection_id, op="delete")
             return cur.rowcount > 0
 
     # ─── members ────────────────────────────────────────
@@ -187,6 +192,7 @@ class CollectionsRepository:
                 "VALUES (?, ?, ?, ?)",
                 (collection_id, member_type, member_id, position),
             )
+            self.db.enqueue_sync(conn, "collection", collection_id)
             return position
 
     def remove_member(
@@ -201,6 +207,7 @@ class CollectionsRepository:
             if cur.rowcount == 0:
                 return False
             self._compact_positions(conn, collection_id)
+            self.db.enqueue_sync(conn, "collection", collection_id)
             return True
 
     def reorder(
@@ -238,6 +245,7 @@ class CollectionsRepository:
                     "WHERE collection_id = ? AND member_type = ? AND member_id = ?",
                     (i, collection_id, mtype, mid),
                 )
+            self.db.enqueue_sync(conn, "collection", collection_id)
 
     def list_members(self, collection_id: str) -> list[OutlineNode]:
         with self.db.conn() as conn:

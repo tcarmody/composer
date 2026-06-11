@@ -123,8 +123,49 @@ class ItemRepository:
                             existing["id"],
                         ),
                     )
+                    self.db.enqueue_sync(conn, "item", existing["id"])
                     row = conn.execute(
                         "SELECT * FROM items WHERE id = ?", (existing["id"],)
+                    ).fetchone()
+                    return _row_to_item(row), False
+
+            # Migration shim: DataPoints used to send its AUTOINCREMENT
+            # article id as source_ref; it now sends the article URL. Match
+            # legacy rows (digits-only ref) by (source, url) and upgrade the
+            # ref in place so re-promotion doesn't duplicate them.
+            if source_ref and url:
+                legacy = conn.execute(
+                    """
+                    SELECT * FROM items
+                    WHERE source = ? AND url = ?
+                      AND source_ref IS NOT NULL AND source_ref != ''
+                      AND source_ref NOT GLOB '*[^0-9]*'
+                    """,
+                    (source, url),
+                ).fetchone()
+                if legacy:
+                    conn.execute(
+                        """
+                        UPDATE items SET
+                            source_ref = ?, url = ?, title = ?, author = ?,
+                            published_at = ?, content = ?, summary = ?,
+                            key_points = ?, keywords = ?,
+                            related_links = ?, metadata = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            source_ref, url, title, author,
+                            published_at, content, summary,
+                            json.dumps(key_points or []),
+                            json.dumps(keywords or []),
+                            json.dumps(related_links or []),
+                            json.dumps(metadata or {}),
+                            legacy["id"],
+                        ),
+                    )
+                    self.db.enqueue_sync(conn, "item", legacy["id"])
+                    row = conn.execute(
+                        "SELECT * FROM items WHERE id = ?", (legacy["id"],)
                     ).fetchone()
                     return _row_to_item(row), False
 
@@ -146,6 +187,7 @@ class ItemRepository:
                     json.dumps(metadata or {}),
                 ),
             )
+            self.db.enqueue_sync(conn, "item", item_id)
             row = conn.execute(
                 "SELECT * FROM items WHERE id = ?", (item_id,)
             ).fetchone()
@@ -226,11 +268,15 @@ class ItemRepository:
             row = conn.execute(
                 "SELECT * FROM items WHERE id = ?", (item_id,)
             ).fetchone()
+            if row:
+                self.db.enqueue_sync(conn, "item", item_id)
             return _row_to_item(row) if row else None
 
     def delete(self, item_id: str) -> bool:
         with self.db.conn() as conn:
             cur = conn.execute("DELETE FROM items WHERE id = ?", (item_id,))
+            if cur.rowcount > 0:
+                self.db.enqueue_sync(conn, "item", item_id, op="delete")
             return cur.rowcount > 0
 
     def update_content(
@@ -254,6 +300,7 @@ class ItemRepository:
                 "UPDATE items SET content = ?, metadata = ? WHERE id = ?",
                 (content, json.dumps(existing), item_id),
             )
+            self.db.enqueue_sync(conn, "item", item_id)
             updated = conn.execute(
                 "SELECT * FROM items WHERE id = ?", (item_id,)
             ).fetchone()
@@ -273,6 +320,7 @@ class ItemRepository:
             )
             if cur.rowcount == 0:
                 return None
+            self.db.enqueue_sync(conn, "item", item_id)
             row = conn.execute(
                 "SELECT * FROM items WHERE id = ?", (item_id,)
             ).fetchone()

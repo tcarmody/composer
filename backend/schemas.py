@@ -56,6 +56,26 @@ class IngestBatchResponse(BaseModel):
     skipped: int
 
 
+class SyncEntry(BaseModel):
+    """One entity snapshot (or tombstone) pushed by a local Composer's
+    sync worker to its cloud replica."""
+
+    entity_type: Literal["item", "note", "draft", "collection"]
+    entity_id: str
+    op: Literal["upsert", "delete"]
+    data: dict[str, Any] | None = None
+
+
+class SyncApplyRequest(BaseModel):
+    entries: list[SyncEntry]
+
+
+class SyncApplyResponse(BaseModel):
+    upserted: int
+    deleted: int
+    skipped: int
+
+
 class ItemResponse(BaseModel):
     id: str
     source: str

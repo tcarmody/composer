@@ -52,6 +52,14 @@ class Config:
     DATAPOINTS_URL: str = os.getenv("DATAPOINTS_URL", "http://127.0.0.1:5005")
     DATAPOINTS_API_KEY: str = os.getenv("DATAPOINTS_API_KEY", "")
 
+    # Local→cloud sync relay. Set SYNC_TARGET_URL on the LOCAL instance to
+    # the Railway base URL to enable the outbox worker; leave unset on the
+    # cloud instance. SYNC_API_KEY is sent as X-Ingest-Key and must equal
+    # the target's COMPOSER_INGEST_KEY.
+    SYNC_TARGET_URL: str = os.getenv("SYNC_TARGET_URL", "")
+    SYNC_API_KEY: str = os.getenv("SYNC_API_KEY", "")
+    SYNC_INTERVAL: float = float(os.getenv("SYNC_INTERVAL", "5"))
+
     CORS_ORIGINS: list[str] = [
         o.strip() for o in os.getenv(
             "CORS_ORIGINS",

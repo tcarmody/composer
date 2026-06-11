@@ -42,6 +42,7 @@ class NotesRepository:
                 "INSERT INTO notes (id, title, body) VALUES (?, ?, ?)",
                 (note_id, title, body),
             )
+            self.db.enqueue_sync(conn, "note", note_id)
             row = conn.execute(
                 "SELECT * FROM notes WHERE id = ?", (note_id,)
             ).fetchone()
@@ -91,11 +92,15 @@ class NotesRepository:
             row = conn.execute(
                 "SELECT * FROM notes WHERE id = ?", (note_id,)
             ).fetchone()
+            if row:
+                self.db.enqueue_sync(conn, "note", note_id)
             return _row_to_note(row) if row else None
 
     def delete(self, note_id: str) -> bool:
         with self.db.conn() as conn:
             cur = conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
+            if cur.rowcount > 0:
+                self.db.enqueue_sync(conn, "note", note_id, op="delete")
             return cur.rowcount > 0
 
     # ─── item attachments ───────────────────────────────
@@ -109,6 +114,7 @@ class NotesRepository:
                 "VALUES (?, ?, ?)",
                 (item_id, note_id, anchor),
             )
+            self.db.enqueue_sync(conn, "note", note_id)
 
     def detach_from_item(self, *, item_id: str, note_id: str) -> bool:
         with self.db.conn() as conn:
@@ -116,6 +122,8 @@ class NotesRepository:
                 "DELETE FROM item_notes WHERE item_id = ? AND note_id = ?",
                 (item_id, note_id),
             )
+            if cur.rowcount > 0:
+                self.db.enqueue_sync(conn, "note", note_id)
             return cur.rowcount > 0
 
     def list_for_item(self, item_id: str) -> list[Note]:

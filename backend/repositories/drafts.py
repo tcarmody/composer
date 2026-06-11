@@ -66,6 +66,7 @@ class DraftsRepository:
                 "INSERT INTO drafts (id, title, body, status) VALUES (?, ?, ?, ?)",
                 (draft_id, title, body, status),
             )
+            self.db.enqueue_sync(conn, "draft", draft_id)
             row = conn.execute(
                 "SELECT * FROM drafts WHERE id = ?", (draft_id,)
             ).fetchone()
@@ -121,11 +122,15 @@ class DraftsRepository:
             row = conn.execute(
                 "SELECT * FROM drafts WHERE id = ?", (draft_id,)
             ).fetchone()
+            if row:
+                self.db.enqueue_sync(conn, "draft", draft_id)
             return _row_to_draft(row) if row else None
 
     def delete(self, draft_id: str) -> bool:
         with self.db.conn() as conn:
             cur = conn.execute("DELETE FROM drafts WHERE id = ?", (draft_id,))
+            if cur.rowcount > 0:
+                self.db.enqueue_sync(conn, "draft", draft_id, op="delete")
             return cur.rowcount > 0
 
     def append_body(
@@ -156,6 +161,7 @@ class DraftsRepository:
                     "INSERT INTO draft_sources (draft_id, item_id, excerpt) VALUES (?, ?, ?)",
                     (draft_id, item_id, excerpt),
                 )
+            self.db.enqueue_sync(conn, "draft", draft_id)
             updated = conn.execute(
                 "SELECT * FROM drafts WHERE id = ?", (draft_id,)
             ).fetchone()
@@ -194,4 +200,6 @@ class DraftsRepository:
                 "DELETE FROM draft_sources WHERE draft_id = ? AND id = ?",
                 (draft_id, source_id),
             )
+            if cur.rowcount > 0:
+                self.db.enqueue_sync(conn, "draft", draft_id)
             return cur.rowcount > 0

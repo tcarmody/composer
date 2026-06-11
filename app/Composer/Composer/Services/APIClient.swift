@@ -39,18 +39,21 @@ enum APIError: LocalizedError {
 }
 
 final class APIClient {
-    /// Default cloud backend. Update if the Railway service URL differs.
+    /// Default backend: the local supervised instance (zero-latency,
+    /// works offline). Its sync worker relays writes to the cloud replica.
+    static let localBaseURLString = "http://127.0.0.1:5006"
+    /// Cloud replica on Railway — reachable by entering it in Settings.
     static let cloudBaseURLString = "https://composer.up.railway.app"
     /// UserDefaults key persisting the user-chosen backend URL.
     static let baseURLDefaultsKey = "COMPOSER_BASE_URL"
 
-    /// Resolves the configured base URL: persisted value, else cloud default.
+    /// Resolves the configured base URL: persisted value, else local default.
     static func resolveBaseURL() -> URL {
         if let stored = UserDefaults.standard.string(forKey: baseURLDefaultsKey),
            !stored.isEmpty, let url = URL(string: stored), url.host != nil {
             return url
         }
-        return URL(string: cloudBaseURLString)!
+        return URL(string: localBaseURLString)!
     }
 
     var baseURL: URL

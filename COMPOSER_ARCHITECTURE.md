@@ -93,6 +93,38 @@ Two independent applications, two independent databases, communicating over HTTP
 - **Immutable snapshots.** When DataPoints promotes an item, it sends a full snapshot. Composer stores that snapshot and never re-fetches. If the source URL dies, the content stays. If DataPoints re-summarizes, Composer is unaffected.
 - **Composer is self-contained.** You can delete DataPoints tomorrow and Composer still works — you just lose the ability to promote new items.
 
+### Local-primary + cloud replica (sync relay)
+
+Composer runs in two places with one writer:
+
+- **Local backend** (supervised by the Mac app, port 5006) is the **primary**.
+  All Mac-app writes land here — zero latency, fully offline-capable.
+- **Railway instance** is a **read-mostly replica** that serves the web app.
+
+Every repository mutation on the local instance records an entry in the
+`sync_outbox` table (same transaction as the write). A background worker —
+enabled by setting `SYNC_TARGET_URL` on the local instance only — drains the
+outbox, builds whole-entity snapshots (items/notes/drafts/collections,
+including their chunks *with embeddings*, so the replica never re-embeds),
+and POSTs them to the replica's `/v1/sync/apply`, which upserts preserving
+IDs. Conflict policy is last-writer-wins with local winning; web-originated
+writes on the replica survive until the same entity is next touched locally.
+While offline, entries queue; they flush automatically on reconnect
+(exponential backoff, max 5 min between retries).
+
+Ops notes:
+- `/v1/sync/apply` is guarded by the same `X-Ingest-Key` as `/v1/ingest`;
+  local's `SYNC_API_KEY` must equal the cloud's `COMPOSER_INGEST_KEY`.
+- `GET /v1/admin/sync/status` shows the pending-outbox depth;
+  `POST /v1/admin/sync/full` queues every entity (drift repair / first seed).
+- To seed a fresh local DB from the cloud copy (e.g. when adopting this
+  topology after a cloud-primary stretch), stop the local backend and run
+  `python scripts/pull_cloud_db.py --url <railway-url> --api-key <AUTH_API_KEY>`,
+  which downloads a consistent snapshot via `GET /v1/admin/export/db`.
+- DataPoints promotes by article **URL** (`source_ref`), not its
+  AUTOINCREMENT id, so a local and a cloud DataPoints can both promote the
+  same article and Composer dedupes them to one item.
+
 ---
 
 ## 4. Data Model
