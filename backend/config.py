@@ -59,6 +59,9 @@ class Config:
     SYNC_TARGET_URL: str = os.getenv("SYNC_TARGET_URL", "")
     SYNC_API_KEY: str = os.getenv("SYNC_API_KEY", "")
     SYNC_INTERVAL: float = float(os.getenv("SYNC_INTERVAL", "5"))
+    # How often to pull cloud-ingested items down (web promotions land on
+    # the cloud instance and flow back through GET /v1/sync/items).
+    SYNC_PULL_INTERVAL: float = float(os.getenv("SYNC_PULL_INTERVAL", "30"))
 
     CORS_ORIGINS: list[str] = [
         o.strip() for o in os.getenv(

@@ -1,13 +1,22 @@
 """
-Sync relay — pushes local writes to a cloud Composer instance.
+Sync relay — pushes local writes to a cloud Composer instance, and pulls
+cloud-ingested items back down.
 
-Topology: the LOCAL instance is the single writer; the cloud instance is a
-serving replica for the web app. Every repository mutation records an entry
-in `sync_outbox` (same transaction as the write). The worker started from
-server.py drains the outbox, builds whole-entity snapshots — including
-chunks with their embeddings, so the replica never re-embeds — and POSTs
-them to `{SYNC_TARGET_URL}/v1/sync/apply`. Apply is an ID-preserving upsert
+Topology: the LOCAL instance is the writer for notes/drafts/collections;
+the cloud instance is a serving replica for the web app. Every repository
+mutation records an entry in `sync_outbox` (same transaction as the
+write). The worker started from server.py drains the outbox, builds
+whole-entity snapshots — including chunks with their embeddings, so the
+replica never re-embeds — and POSTs them to
+`{SYNC_TARGET_URL}/v1/sync/apply`. Apply is an ID-preserving upsert
 (last-writer-wins, local wins), so replays are harmless.
+
+ITEMS are the one entity that also flows cloud→local: promoting from the
+cloud DataPoints web UI ingests into the cloud instance, so the worker
+periodically GETs `{SYNC_TARGET_URL}/v1/sync/items` for items promoted
+after its cursor (kept in schema_meta) and applies them locally. Items
+are immutable snapshots keyed by (source, source_ref) with UUID ids, so
+the two directions can't conflict.
 
 Enabled only when SYNC_TARGET_URL is set; the cloud instance leaves it
 unset and never enqueues (Database.track_sync=False).
@@ -17,6 +26,7 @@ import asyncio
 import base64
 import logging
 import sqlite3
+import time
 import uuid
 from typing import Any
 
@@ -28,6 +38,7 @@ from ..database import Database
 logger = logging.getLogger(__name__)
 
 BATCH_LIMIT = 200
+PULL_CURSOR_KEY = "sync_items_cursor"
 
 ENTITY_TABLES = {
     "item": "items",
@@ -287,6 +298,98 @@ def apply_entry(db: Database, entity_type: str, entity_id: str, op: str, data: d
         return "upserted"
 
 
+# ─── item pull-down (cloud→local) ────────────────────────────────────
+
+
+def list_items_since(db: Database, since: str, limit: int = BATCH_LIMIT) -> list[dict]:
+    """Item snapshots promoted after `since`, oldest first (cloud side)."""
+    with db.conn() as conn:
+        rows = conn.execute(
+            "SELECT id FROM items WHERE promoted_at > ? "
+            "ORDER BY promoted_at ASC LIMIT ?",
+            (since, limit),
+        ).fetchall()
+    snapshots = []
+    for r in rows:
+        snap = build_snapshot(db, "item", r["id"])
+        if snap is not None:
+            snapshots.append(snap)
+    return snapshots
+
+
+def _get_pull_cursor(db: Database) -> str | None:
+    with db.conn() as conn:
+        row = conn.execute(
+            "SELECT value FROM schema_meta WHERE key = ?", (PULL_CURSOR_KEY,)
+        ).fetchone()
+        return row["value"] if row else None
+
+
+def _set_pull_cursor(db: Database, cursor: str) -> None:
+    with db.conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_meta (key, value) VALUES (?, ?)",
+            (PULL_CURSOR_KEY, cursor),
+        )
+
+
+def init_pull_cursor(db: Database) -> str:
+    """First run after seeding from the cloud DB: start the cursor at the
+    newest local item so the whole corpus isn't re-pulled."""
+    cursor = _get_pull_cursor(db)
+    if cursor is not None:
+        return cursor
+    with db.conn() as conn:
+        row = conn.execute("SELECT MAX(promoted_at) AS mx FROM items").fetchone()
+    cursor = row["mx"] or ""
+    _set_pull_cursor(db, cursor)
+    return cursor
+
+
+async def pull_once(db: Database) -> int:
+    """Pull one batch of cloud-ingested items down. Returns items applied.
+    Raises on transport/HTTP failure so the worker can back off."""
+    cursor = init_pull_cursor(db)
+    headers = {}
+    if config.SYNC_API_KEY:
+        headers["X-Ingest-Key"] = config.SYNC_API_KEY
+    url = config.SYNC_TARGET_URL.rstrip("/") + "/v1/sync/items"
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.get(
+            url, params={"since": cursor, "limit": BATCH_LIMIT}, headers=headers
+        )
+    resp.raise_for_status()
+    items = resp.json().get("items", [])
+    if not items:
+        return 0
+
+    applied = 0
+    max_promoted = cursor
+    for snap in items:
+        max_promoted = max(max_promoted, snap.get("promoted_at") or "")
+        # Guard against divergence: same (source, source_ref) already
+        # present locally under a different id (e.g. promoted to both
+        # instances independently before sync existed). Local wins.
+        if snap.get("source_ref"):
+            with db.conn() as conn:
+                existing = conn.execute(
+                    "SELECT id FROM items WHERE source = ? AND source_ref = ?",
+                    (snap["source"], snap["source_ref"]),
+                ).fetchone()
+            if existing and existing["id"] != snap["id"]:
+                logger.warning(
+                    "pull: skipping cloud item %s — (%s, %s) exists locally as %s",
+                    snap["id"], snap["source"], snap["source_ref"], existing["id"],
+                )
+                continue
+        apply_entry(db, "item", snap["id"], "upsert", snap)
+        applied += 1
+    _set_pull_cursor(db, max_promoted)
+    if applied:
+        logger.info("Pulled %d item(s) from cloud", applied)
+    return applied
+
+
 # ─── worker (local side) ─────────────────────────────────────────────
 
 
@@ -327,7 +430,9 @@ async def push_once(db: Database) -> int:
 
 async def sync_worker() -> None:
     interval = max(config.SYNC_INTERVAL, 1.0)
+    pull_interval = max(config.SYNC_PULL_INTERVAL, 1.0)
     backoff = interval
+    last_pull = 0.0
     logger.info("Sync worker started → %s (every %.0fs)", config.SYNC_TARGET_URL, interval)
     while True:
         db = state.db
@@ -346,5 +451,19 @@ async def sync_worker() -> None:
         backoff = interval
         if sent:
             logger.info("Synced %d entr%s to cloud", sent, "y" if sent == 1 else "ies")
+
+        if time.monotonic() - last_pull >= pull_interval:
+            try:
+                pulled = await pull_once(db)
+                last_pull = time.monotonic()
+                # keep pulling promptly while the cloud has a backlog
+                if pulled >= BATCH_LIMIT:
+                    last_pull = 0.0
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning("Item pull failed (%s); will retry", e)
+                last_pull = time.monotonic()
+
         # drain immediately while busy, otherwise idle at the poll interval
         await asyncio.sleep(0 if sent >= BATCH_LIMIT else interval)
