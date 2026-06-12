@@ -112,6 +112,15 @@ writes on the replica survive until the same entity is next touched locally.
 While offline, entries queue; they flush automatically on reconnect
 (exponential backoff, max 5 min between retries).
 
+**Items flow both ways.** Promoting from the cloud DataPoints web UI
+ingests into the cloud instance, so the local worker also polls
+`GET /v1/sync/items` (every `SYNC_PULL_INTERVAL`, default 30s) for items
+promoted after its cursor (`schema_meta.sync_items_cursor`) and applies
+them locally, IDs preserved. Items are immutable snapshots keyed by
+(source, source_ref) with UUID ids, so the two directions cannot
+conflict; if the same (source, source_ref) somehow exists under
+different ids, the local copy wins and the cloud one is skipped.
+
 Ops notes:
 - `/v1/sync/apply` is guarded by the same `X-Ingest-Key` as `/v1/ingest`;
   local's `SYNC_API_KEY` must equal the cloud's `COMPOSER_INGEST_KEY`.
