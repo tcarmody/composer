@@ -54,3 +54,6 @@ app/**/DerivedData/
 app/**/build/
 app/**/builds/
 *.xcworkspace/xcuserdata/
+
+# Claude Code per-machine settings (permissions allowlist, etc.)
+.claude/settings.local.json
