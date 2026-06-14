@@ -118,7 +118,10 @@ struct ItemDetailView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
-                Spacer()
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .help(verboseSourceLine(item))
+                Spacer(minLength: 8)
                 if item.source == "datapoints" {
                     actionButton(
                         title: "Refresh",
@@ -212,11 +215,43 @@ struct ItemDetailView: View {
         .help(help)
     }
 
+    /// Eyebrow line: `source · <compact ref>`. Since DataPoints items are now
+    /// keyed by full URL, showing the raw `sourceRef` overflows the header, so
+    /// prefer a short host (e.g. "venturebeat.com"). Legacy non-URL refs
+    /// (numeric DataPoints ids, manual refs) are still shown verbatim.
     private func sourceLine(_ item: Item) -> String {
-        var s = item.source
-        if let ref = item.sourceRef { s += " · \(ref)" }
+        var parts = [item.source]
+        if let ref = compactSourceRef(item) { parts.append(ref) }
+        var s = parts.joined(separator: " · ")
         if item.isArchived { s += " · archived" }
         return s
+    }
+
+    /// Full, untruncated source line for the hover tooltip.
+    private func verboseSourceLine(_ item: Item) -> String {
+        var s = item.source
+        if let ref = item.sourceRef, !ref.isEmpty { s += " · \(ref)" }
+        if item.isArchived { s += " · archived" }
+        return s
+    }
+
+    private func compactSourceRef(_ item: Item) -> String? {
+        if let host = host(from: item.url) ?? host(from: item.sourceRef) {
+            return host
+        }
+        if let ref = item.sourceRef, !ref.isEmpty, !ref.contains("://") {
+            return ref
+        }
+        return nil
+    }
+
+    /// Host of a URL string, minus a leading "www.". Returns nil for values
+    /// that aren't URL-shaped (e.g. a bare numeric id).
+    private func host(from string: String?) -> String? {
+        guard let string, string.contains("://"),
+              let host = URLComponents(string: string)?.host,
+              !host.isEmpty else { return nil }
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
     @ViewBuilder
