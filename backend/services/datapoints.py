@@ -25,14 +25,26 @@ async def refresh_from_datapoints(source_ref: str) -> None:
     already called back into our /v1/ingest/items endpoint, so the caller
     can re-read the item from the DB and see refreshed fields.
     """
-    url = f"{config.DATAPOINTS_URL.rstrip('/')}/articles/{source_ref}/promote"
+    base = config.DATAPOINTS_URL.rstrip("/")
+    # source_ref is the article URL for items promoted after the
+    # collision fix (see composer_client / ingest shim); older items keep
+    # the numeric DataPoints id. The numeric id matches the legacy
+    # /articles/{id}/promote route directly; a URL ref can't (it isn't an
+    # int and contains slashes), so route it through promote-by-ref, which
+    # resolves by URL on the DataPoints side.
+    if source_ref.isdigit():
+        request = ("POST", f"{base}/articles/{source_ref}/promote", None)
+    else:
+        request = ("POST", f"{base}/articles/promote-by-ref", {"ref": source_ref})
+
+    method, url, params = request
     headers: dict[str, str] = {}
     if config.DATAPOINTS_API_KEY:
         headers["X-API-Key"] = config.DATAPOINTS_API_KEY
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, headers=headers)
+            resp = await client.request(method, url, headers=headers, params=params)
     except httpx.HTTPError as e:
         raise DataPointsError(f"DataPoints unreachable: {e}") from e
 
