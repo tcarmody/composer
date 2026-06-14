@@ -52,6 +52,12 @@ class Config:
     DATAPOINTS_URL: str = os.getenv("DATAPOINTS_URL", "http://127.0.0.1:5005")
     DATAPOINTS_API_KEY: str = os.getenv("DATAPOINTS_API_KEY", "")
 
+    # Fallback DataPoints for item refresh: items promoted from the cloud
+    # web UI and pulled down here don't exist in the local DataPoints DB,
+    # so refresh falls back to this instance (typically the cloud macreader).
+    DATAPOINTS_FALLBACK_URL: str = os.getenv("DATAPOINTS_FALLBACK_URL", "")
+    DATAPOINTS_FALLBACK_API_KEY: str = os.getenv("DATAPOINTS_FALLBACK_API_KEY", "")
+
     # Local→cloud sync relay. Set SYNC_TARGET_URL on the LOCAL instance to
     # the Railway base URL to enable the outbox worker; leave unset on the
     # cloud instance. SYNC_API_KEY is sent as X-Ingest-Key and must equal

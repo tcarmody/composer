@@ -117,7 +117,7 @@ async def refresh_item(
         )
 
     try:
-        await refresh_from_datapoints(item.source_ref)
+        await refresh_from_datapoints(item.source_ref, item.id)
     except DataPointsError as e:
         raise HTTPException(status_code=502, detail=str(e))
 

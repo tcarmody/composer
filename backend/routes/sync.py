@@ -8,13 +8,13 @@ X-Ingest-Key as /v1/ingest since both are service-to-service surfaces.
 
 import logging
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..auth import verify_ingest_key
 from ..config import get_db
 from ..database import Database
 from ..schemas import SyncApplyRequest, SyncApplyResponse
-from ..services.sync import apply_entry, list_items_since
+from ..services.sync import apply_entry, build_snapshot, list_items_since
 
 logger = logging.getLogger(__name__)
 
@@ -52,3 +52,14 @@ async def sync_items(
     """Item snapshots promoted after `since` — lets a local instance pull
     down items that were ingested cloud-side (web DataPoints promotions)."""
     return {"items": list_items_since(db, since, limit)}
+
+
+@router.get("/items/{item_id}")
+async def sync_item(item_id: str, db: Database = Depends(get_db)) -> dict:
+    """One item snapshot by id — used by a local instance to fetch a
+    just-refreshed item whose promoted_at didn't change (so the cursor-based
+    pull wouldn't carry it)."""
+    snapshot = build_snapshot(db, "item", item_id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {"item": snapshot}
