@@ -30,6 +30,8 @@ struct NoteEditorView: View {
                     .sheet(isPresented: $showLinkSheet) { linkSheet }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .composerSurface(.reading)
         .confirmationDialog(
             "Delete this note?",
             isPresented: Binding(
@@ -72,9 +74,6 @@ struct NoteEditorView: View {
             RichTextEditorHosted(attributed: $model.editorAttributed, commands: commands, theme: app.theme)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(app.theme.backgroundColor)
-        .foregroundStyle(app.theme.textColor, app.theme.secondaryTextColor)
-        .tint(app.theme.accentColor)
         .navigationSubtitle(model.isDirty ? "Unsaved changes" : "")
     }
 
@@ -94,7 +93,7 @@ struct NoteEditorView: View {
             }
         }
         .padding(16)
-        .background(app.theme.chromeBackground)
+        .composerSurface(.chrome)
     }
 
     private var linkSheet: some View {

@@ -15,6 +15,11 @@ struct MainView: View {
             }
             mainSplit
         }
+        .composerAppearance(
+            theme: app.theme,
+            typeface: app.typeface,
+            density: app.listDensity
+        )
         .onChange(of: app.selectedTab) { _, _ in
             if app.draftsModel.isDirty { app.draftsModel.save() }
         }

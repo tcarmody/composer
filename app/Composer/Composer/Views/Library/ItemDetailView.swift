@@ -3,10 +3,22 @@ import SwiftUI
 struct ItemDetailView: View {
     @ObservedObject var model: LibraryModel
     @EnvironmentObject private var app: AppState
+    @Environment(\.composerTypeface) private var typeface
     @State private var showDeleteConfirm = false
     @State private var pendingDelete: Item?
 
     var body: some View {
+        // The surface wraps the whole switch, not just the loaded case, so the
+        // empty and error states stay in the palette too.
+        Group {
+            detail
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .composerSurface(.reading)
+    }
+
+    @ViewBuilder
+    private var detail: some View {
         switch model.detailState {
         case .empty:
             ContentUnavailableView(
@@ -44,7 +56,7 @@ struct ItemDetailView: View {
                 header(item)
                 if let summary = item.summary, !summary.isEmpty {
                     section("Summary", sendableText: summary, item: item) {
-                        RichContentView(content: summary, theme: app.theme, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
+                        RichContentView(content: summary, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
                             app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
                         }
                     }
@@ -59,7 +71,7 @@ struct ItemDetailView: View {
                             ForEach(Array(item.keyPoints.enumerated()), id: \.offset) { _, kp in
                                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                                     Text("•").foregroundStyle(.secondary)
-                                    RichContentView(content: kp, theme: app.theme, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
+                                    RichContentView(content: kp, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
                                         app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
                                     }
                                 }
@@ -80,7 +92,7 @@ struct ItemDetailView: View {
                 }
                 if let content = item.content, !content.isEmpty {
                     section("Full text") {
-                        RichContentView(content: content, theme: app.theme, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
+                        RichContentView(content: content, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
                             app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
                         }
                     }
@@ -104,10 +116,7 @@ struct ItemDetailView: View {
             .frame(maxWidth: 760, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(app.theme.backgroundColor)
-        .foregroundStyle(app.theme.textColor, app.theme.secondaryTextColor)
-        .tint(app.theme.accentColor)
-        .font(app.typeface.font(size: 14))
+        .font(typeface.readingBody)
     }
 
     @ViewBuilder

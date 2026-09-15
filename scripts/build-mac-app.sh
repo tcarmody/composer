@@ -131,5 +131,8 @@ echo "    project root: $REPO_ROOT"
 
 if [[ "$RUN_AFTER" == "1" ]]; then
     echo "==> Launching"
-    open "$APP"
+    # -n forces this bundle. Without it LaunchServices can hand the launch to
+    # another copy with the same bundle id (e.g. an install in /Applications),
+    # and you end up staring at a build you didn't just make.
+    open -n "$APP"
 fi

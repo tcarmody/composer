@@ -2,7 +2,7 @@ import SwiftUI
 
 struct NotesListView: View {
     @ObservedObject var model: NotesModel
-    @EnvironmentObject private var app: AppState
+    @Environment(\.composerDensity) private var density
 
     var body: some View {
         content
@@ -42,10 +42,11 @@ struct NotesListView: View {
                     set: { model.select($0) }
                 )) {
                     ForEach(filtered) { note in
-                        NoteRow(note: note, density: app.listDensity).tag(note.id)
+                        NoteRow(note: note, density: density).tag(note.id)
                     }
                 }
                 .listStyle(.inset)
+                .composerSurface(.list)
             }
         }
     }
@@ -59,13 +60,14 @@ struct NotesListView: View {
 }
 
 private struct NoteRow: View {
+    @Environment(\.composerTypeface) private var typeface
     let note: Note
     let density: ListDensity
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(displayTitle)
-                .font(.system(size: 13, weight: .medium))
+                .font(typeface.rowTitle)
                 .lineLimit(1)
             if density.showSummaryPreview, !previewBody.isEmpty {
                 Text(previewBody)

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct DraftsListView: View {
     @ObservedObject var model: DraftsModel
-    @EnvironmentObject private var app: AppState
+    @Environment(\.composerDensity) private var density
 
     var body: some View {
         content
@@ -42,10 +42,11 @@ struct DraftsListView: View {
                     set: { model.select($0) }
                 )) {
                     ForEach(filtered) { draft in
-                        DraftRow(draft: draft, density: app.listDensity).tag(draft.id)
+                        DraftRow(draft: draft, density: density).tag(draft.id)
                     }
                 }
                 .listStyle(.inset)
+                .composerSurface(.list)
             }
         }
     }
@@ -59,6 +60,7 @@ struct DraftsListView: View {
 }
 
 private struct DraftRow: View {
+    @Environment(\.composerTypeface) private var typeface
     let draft: Draft
     let density: ListDensity
 
@@ -66,7 +68,7 @@ private struct DraftRow: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
                 Text(displayTitle)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(typeface.rowTitle)
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 StatusBadge(status: draft.status)

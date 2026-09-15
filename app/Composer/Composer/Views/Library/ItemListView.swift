@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ItemListView: View {
     @ObservedObject var model: LibraryModel
-    @EnvironmentObject private var app: AppState
+    @Environment(\.composerDensity) private var density
     @State private var pendingDelete: ItemSummary?
     @State private var showDeleteConfirm = false
 
@@ -46,7 +46,7 @@ struct ItemListView: View {
                 )) {
                     Section {
                         ForEach(response.items) { item in
-                            ItemRowView(item: item, density: app.listDensity)
+                            ItemRowView(item: item, density: density)
                                 .tag(item.id)
                                 .contextMenu { rowMenu(for: item) }
                         }
@@ -57,6 +57,7 @@ struct ItemListView: View {
                     }
                 }
                 .listStyle(.inset)
+                .composerSurface(.list)
             }
         }
     }
@@ -133,6 +134,7 @@ struct ItemListView: View {
 }
 
 private struct ItemRowView: View {
+    @Environment(\.composerTypeface) private var typeface
     let item: ItemSummary
     let density: ListDensity
 
@@ -140,7 +142,7 @@ private struct ItemRowView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
                 Text(item.title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(typeface.rowTitle)
                     .lineLimit(2)
                 Spacer(minLength: 8)
                 Text(formatDate(item.publishedAt ?? item.promotedAt))

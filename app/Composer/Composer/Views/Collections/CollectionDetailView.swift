@@ -141,6 +141,7 @@ private struct OutlineNodeRow: View {
     let node: OutlineNode
     let onRemove: () -> Void
     @EnvironmentObject private var app: AppState
+    @Environment(\.composerTypeface) private var typeface
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -180,7 +181,7 @@ private struct OutlineNodeRow: View {
         if node.memberType == .item, let item = node.item {
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title ?? "(untitled)")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(typeface.rowTitle)
                 if let summary = item.summary, !summary.isEmpty {
                     Text(summary)
                         .font(.caption)
@@ -191,9 +192,9 @@ private struct OutlineNodeRow: View {
         } else if node.memberType == .note, let note = node.note {
             VStack(alignment: .leading, spacing: 3) {
                 if let title = note.title, !title.isEmpty {
-                    Text(title).font(.system(size: 13, weight: .medium))
+                    Text(title).font(typeface.rowTitle)
                 }
-                RichContentView(content: note.body, theme: app.theme, hasCurrentDraft: app.hasCurrentDraft)
+                RichContentView(content: note.body, hasCurrentDraft: app.hasCurrentDraft)
             }
         } else {
             Text("Unknown member").font(.caption).foregroundStyle(.secondary)

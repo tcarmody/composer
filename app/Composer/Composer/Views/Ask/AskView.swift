@@ -16,9 +16,11 @@ struct AskView: View {
                 AskInputBar(model: model)
             }
             .frame(minWidth: 420)
+            .composerSurface(.reading)
 
             AskCitationsView(model: model, onOpenSource: openSource)
                 .frame(minWidth: 260, idealWidth: 320)
+                .composerSurface(.chrome)
         }
         .focusedSceneValue(\.refreshAction, RefreshAction {
             model.reset()

@@ -79,6 +79,6 @@ struct RichTextToolbar: View {
         .buttonStyle(.borderless)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(app.theme.chromeBackground)
+        .composerSurface(.chrome)
     }
 }

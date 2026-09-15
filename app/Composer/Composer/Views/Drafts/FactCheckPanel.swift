@@ -48,7 +48,7 @@ struct FactCheckPanel: View {
             }
         }
         .frame(width: 360)
-        .background(app.theme.chromeBackground)
+        .composerSurface(.chrome)
     }
 
     private var header: some View {

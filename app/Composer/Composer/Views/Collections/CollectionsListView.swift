@@ -2,7 +2,8 @@ import SwiftUI
 
 struct CollectionsListView: View {
     @ObservedObject var model: CollectionsModel
-    @EnvironmentObject private var app: AppState
+    @Environment(\.composerTypeface) private var typeface
+    @Environment(\.composerDensity) private var density
     @State private var newName = ""
 
     var body: some View {
@@ -69,18 +70,19 @@ struct CollectionsListView: View {
                 )) {
                     ForEach(filtered) { c in
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(c.name).font(.system(size: 13, weight: .medium))
+                            Text(c.name).font(typeface.rowTitle)
                             Text("\(c.memberCount) item\(c.memberCount == 1 ? "" : "s")")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        .padding(.vertical, app.listDensity.verticalPadding)
+                        .padding(.vertical, density.verticalPadding)
                         .tag(c.id)
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel("\(c.name), \(c.memberCount) item\(c.memberCount == 1 ? "" : "s")")
                     }
                 }
                 .listStyle(.inset)
+                .composerSurface(.list)
             }
         }
     }

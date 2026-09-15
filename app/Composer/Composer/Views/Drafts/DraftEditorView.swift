@@ -37,6 +37,8 @@ struct DraftEditorView: View {
                     )) { assistSheet }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .composerSurface(.reading)
         .confirmationDialog(
             "Delete this draft?",
             isPresented: Binding(
@@ -186,9 +188,6 @@ struct DraftEditorView: View {
                 )
             }
         }
-        .background(app.theme.backgroundColor)
-        .foregroundStyle(app.theme.textColor, app.theme.secondaryTextColor)
-        .tint(app.theme.accentColor)
         .navigationSubtitle(isCompact ? "" : (model.isDirty ? "Unsaved changes" : ""))
     }
 
@@ -298,7 +297,7 @@ struct DraftEditorView: View {
             sourcesButton
         }
         .padding(16)
-        .background(app.theme.chromeBackground)
+        .composerSurface(.chrome)
     }
 
     private func compactTitleBar(draft: Draft) -> some View {
@@ -360,7 +359,7 @@ struct DraftEditorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(app.theme.chromeBackground)
+        .composerSurface(.chrome)
     }
 
     @ViewBuilder

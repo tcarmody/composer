@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AskTranscriptView: View {
     @ObservedObject var model: AskModel
+    @Environment(\.composerTypeface) private var typeface
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -28,6 +29,7 @@ struct AskTranscriptView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16)
+                .font(typeface.readingBody)
             }
             .onChange(of: model.turns.last?.answer) { _, _ in
                 withAnimation(.linear(duration: 0.1)) {
@@ -86,6 +88,7 @@ private struct TurnView: View {
 }
 
 private struct QuestionBubble: View {
+    @Environment(\.composerTheme) private var theme
     let text: String
 
     var body: some View {
@@ -94,7 +97,7 @@ private struct QuestionBubble: View {
             Text(text)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Color.accentColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 14))
+                .background(theme.accentColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 14))
                 .textSelection(.enabled)
         }
     }

@@ -10,6 +10,7 @@ struct DraftSidePanelView: View {
             Divider()
             content
         }
+        .composerSurface(.chrome)
         .onAppear { loadIfReady() }
         .onChange(of: app.backendReady) { _, ready in
             if ready { loadIfReady() }
