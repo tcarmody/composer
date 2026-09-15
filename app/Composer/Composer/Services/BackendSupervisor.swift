@@ -42,7 +42,10 @@ final class BackendSupervisor: ObservableObject, @unchecked Sendable {
 
     init(projectRoot: URL? = nil) {
         let override = UserDefaults.standard.string(forKey: "COMPOSER_PROJECT_ROOT")
-        let path = override ?? projectRoot?.path ?? "/Users/tim/Workspace/composer"
+        // scripts/build-mac-app.sh bakes the repo it built from into the
+        // bundle, so a clone on any machine finds its own venv/ and backend/.
+        let bundled = Bundle.main.object(forInfoDictionaryKey: "ComposerProjectRoot") as? String
+        let path = override ?? projectRoot?.path ?? bundled ?? "/Users/tim/Workspace/composer"
         self.projectRoot = URL(fileURLWithPath: path, isDirectory: true)
 
         NotificationCenter.default.addObserver(
