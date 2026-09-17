@@ -28,6 +28,10 @@ final class NotesModel: ObservableObject {
 
     @Published var listState: ListState = .idle
     @Published var editorState: EditorState = .empty
+    /// A load running over content that's already displayed. Views overlay a
+    /// delayed indicator rather than blanking the pane.
+    @Published private(set) var isListReloading = false
+    @Published private(set) var isEditorReloading = false
     @Published var selectedId: String?
     @Published var query: String = ""
     @Published var editorAttributed: NSAttributedString = NSAttributedString(string: "") {
@@ -49,16 +53,27 @@ final class NotesModel: ObservableObject {
         autosaveTask?.cancel()
     }
 
+    /// Keep what's already loaded on screen and flag the reload, rather than
+    /// dropping to `.loading` and blanking the pane mid-browse.
+    private func beginListLoad() {
+        if case .loaded = listState { isListReloading = true } else { listState = .loading }
+    }
+
+    private func beginEditorLoad() {
+        if case .editing = editorState { isEditorReloading = true } else { editorState = .loading }
+    }
+
     func refreshList() {
         Task { [weak self] in
             guard let self else { return }
-            self.listState = .loading
+            self.beginListLoad()
             do {
                 let response = try await self.api.listNotes()
                 self.listState = .loaded(response.notes)
             } catch {
                 self.listState = .error(error.localizedDescription)
             }
+            self.isListReloading = false
         }
     }
 
@@ -75,9 +90,10 @@ final class NotesModel: ObservableObject {
                 self.editorAttributed = NSAttributedString(string: "")
                 self.isDirty = false
                 self.titleDraft = ""
+                self.isEditorReloading = false
                 return
             }
-            self.editorState = .loading
+            self.beginEditorLoad()
             do {
                 let note = try await self.api.getNote(id: id)
                 let attributed = MarkdownConverter.attributedString(from: note.body)
@@ -85,7 +101,9 @@ final class NotesModel: ObservableObject {
                 self.editorAttributed = attributed
                 self.titleDraft = note.title ?? ""
                 self.isDirty = false
+                self.isEditorReloading = false
             } catch {
+                self.isEditorReloading = false
                 self.editorState = .error(error.localizedDescription)
             }
         }

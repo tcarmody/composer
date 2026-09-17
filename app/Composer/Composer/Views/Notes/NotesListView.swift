@@ -21,7 +21,7 @@ struct NotesListView: View {
     private var content: some View {
         switch model.listState {
         case .idle, .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            DelayedProgressView()
         case .error(let msg):
             Text("Failed to load: \(msg)")
                 .font(.caption)
@@ -47,6 +47,7 @@ struct NotesListView: View {
                 }
                 .listStyle(.inset)
                 .composerSurface(.list)
+                .reloadIndicator(model.isListReloading)
             }
         }
     }

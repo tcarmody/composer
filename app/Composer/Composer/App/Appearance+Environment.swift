@@ -145,6 +145,42 @@ extension AppTheme {
     }
 }
 
+// MARK: - Status tones
+
+/// Semantic tones for badges, verdicts, and error banners. Views ask for a
+/// tone rather than naming a color, because the wash behind one has to be
+/// tuned per appearance: an 18% green that reads as a soft tint on white all
+/// but disappears against a dark palette like Noir or Midnight.
+///
+/// Reads `\.colorScheme`, which the theme drives via `AppTheme.colorScheme`,
+/// so a dark palette gets the dark treatment even under a light system.
+enum StatusTone {
+    case positive
+    case caution
+    case negative
+    case neutral
+
+    /// Full-strength color for glyphs and text.
+    var accent: Color {
+        switch self {
+        case .positive: return .green
+        case .caution: return .orange
+        case .negative: return .red
+        case .neutral: return .secondary
+        }
+    }
+
+    /// Background wash behind a badge or banner.
+    func fill(_ scheme: ColorScheme) -> Color {
+        accent.opacity(scheme == .dark ? 0.30 : 0.18)
+    }
+
+    /// Hairline around a card or row.
+    func border(_ scheme: ColorScheme) -> Color {
+        accent.opacity(scheme == .dark ? 0.55 : 0.38)
+    }
+}
+
 // MARK: - Type roles
 
 extension AppTypeface {

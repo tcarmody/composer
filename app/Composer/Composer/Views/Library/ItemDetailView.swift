@@ -15,6 +15,7 @@ struct ItemDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .composerSurface(.reading)
+        .reloadIndicator(model.isDetailReloading)
     }
 
     @ViewBuilder
@@ -27,7 +28,7 @@ struct ItemDetailView: View {
                 description: Text("Pick an item from the library to see its contents.")
             )
         case .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            DelayedProgressView()
         case .error(let msg):
             ContentUnavailableView(
                 "Failed to load",

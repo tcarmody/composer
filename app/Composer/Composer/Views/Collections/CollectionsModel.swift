@@ -19,6 +19,10 @@ final class CollectionsModel: ObservableObject {
 
     @Published var listState: ListState = .idle
     @Published var detailState: DetailState = .empty
+    /// A load running over content that's already displayed. Views overlay a
+    /// delayed indicator rather than blanking the pane.
+    @Published private(set) var isListReloading = false
+    @Published private(set) var isDetailReloading = false
     @Published var selectedId: String?
     @Published var query: String = ""
     @Published var isCreating: Bool = false
@@ -29,16 +33,27 @@ final class CollectionsModel: ObservableObject {
         self.api = api
     }
 
+    /// Keep what's already loaded on screen and flag the reload, rather than
+    /// dropping to `.loading` and blanking the pane mid-browse.
+    private func beginListLoad() {
+        if case .loaded = listState { isListReloading = true } else { listState = .loading }
+    }
+
+    private func beginDetailLoad() {
+        if case .loaded = detailState { isDetailReloading = true } else { detailState = .loading }
+    }
+
     func refreshList() {
         Task { [weak self] in
             guard let self else { return }
-            self.listState = .loading
+            self.beginListLoad()
             do {
                 let collections = try await self.api.listCollections()
                 self.listState = .loaded(collections)
             } catch {
                 self.listState = .error(error.localizedDescription)
             }
+            self.isListReloading = false
         }
     }
 
@@ -54,13 +69,14 @@ final class CollectionsModel: ObservableObject {
     func loadDetail(id: String) {
         Task { [weak self] in
             guard let self else { return }
-            self.detailState = .loading
+            self.beginDetailLoad()
             do {
                 let outline = try await self.api.getCollection(id: id)
                 self.detailState = .loaded(outline)
             } catch {
                 self.detailState = .error(error.localizedDescription)
             }
+            self.isDetailReloading = false
         }
     }
 

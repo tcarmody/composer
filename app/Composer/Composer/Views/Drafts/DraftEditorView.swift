@@ -21,7 +21,7 @@ struct DraftEditorView: View {
                     description: Text("Pick a draft from the list, or start a new one.")
                 )
             case .loading:
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                DelayedProgressView()
             case .error(let msg):
                 ContentUnavailableView(
                     "Failed to load",
@@ -39,6 +39,7 @@ struct DraftEditorView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .composerSurface(.reading)
+        .reloadIndicator(model.isEditorReloading)
         .confirmationDialog(
             "Delete this draft?",
             isPresented: Binding(
@@ -289,7 +290,7 @@ struct DraftEditorView: View {
             Spacer()
             if model.isDirty {
                 Circle()
-                    .fill(Color.orange)
+                    .fill(StatusTone.caution.accent)
                     .frame(width: 6, height: 6)
                     .help("Unsaved changes")
                     .accessibilityLabel("Unsaved changes")
@@ -307,7 +308,7 @@ struct DraftEditorView: View {
                 .font(.headline)
                 .accessibilityLabel("Draft title")
             Circle()
-                .fill(model.isDirty ? Color.orange : Color.clear)
+                .fill(model.isDirty ? StatusTone.caution.accent : Color.clear)
                 .frame(width: 6, height: 6)
                 .help(model.isDirty ? "Unsaved changes" : "Saved")
                 .accessibilityLabel(model.isDirty ? "Unsaved changes" : "Saved")

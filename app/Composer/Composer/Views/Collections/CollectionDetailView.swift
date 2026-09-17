@@ -16,7 +16,7 @@ struct CollectionDetailView: View {
                     description: Text("Pick a collection, or create a new one.")
                 )
             case .loading:
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                DelayedProgressView()
             case .error(let msg):
                 ContentUnavailableView(
                     "Failed to load",
@@ -27,6 +27,7 @@ struct CollectionDetailView: View {
                 outlineView(outline)
             }
         }
+        .reloadIndicator(model.isDetailReloading)
         .confirmationDialog(
             "Delete this collection?",
             isPresented: Binding(

@@ -18,7 +18,7 @@ struct NoteEditorView: View {
                     description: Text("Pick a note from the list, or create a new one.")
                 )
             case .loading:
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                DelayedProgressView()
             case .error(let msg):
                 ContentUnavailableView(
                     "Failed to load",
@@ -32,6 +32,7 @@ struct NoteEditorView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .composerSurface(.reading)
+        .reloadIndicator(model.isEditorReloading)
         .confirmationDialog(
             "Delete this note?",
             isPresented: Binding(
@@ -86,7 +87,7 @@ struct NoteEditorView: View {
             Spacer()
             if model.isDirty {
                 Circle()
-                    .fill(Color.orange)
+                    .fill(StatusTone.caution.accent)
                     .frame(width: 6, height: 6)
                     .help("Unsaved changes")
                     .accessibilityLabel("Unsaved changes")

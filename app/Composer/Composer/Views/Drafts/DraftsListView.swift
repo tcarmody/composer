@@ -21,7 +21,7 @@ struct DraftsListView: View {
     private var content: some View {
         switch model.listState {
         case .idle, .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            DelayedProgressView()
         case .error(let msg):
             Text("Failed to load: \(msg)")
                 .font(.caption)
@@ -47,6 +47,7 @@ struct DraftsListView: View {
                 }
                 .listStyle(.inset)
                 .composerSurface(.list)
+                .reloadIndicator(model.isListReloading)
             }
         }
     }
@@ -111,6 +112,7 @@ private struct DraftRow: View {
 }
 
 private struct StatusBadge: View {
+    @Environment(\.colorScheme) private var scheme
     let status: DraftStatus
 
     var body: some View {
@@ -118,21 +120,14 @@ private struct StatusBadge: View {
             .font(.caption2.weight(.semibold))
             .padding(.horizontal, 6)
             .padding(.vertical, 1)
-            .background(background, in: Capsule())
-            .foregroundStyle(foreground)
+            .background(tone.fill(scheme), in: Capsule())
+            .foregroundStyle(tone.accent)
     }
 
-    private var background: Color {
+    private var tone: StatusTone {
         switch status {
-        case .wip: return Color.orange.opacity(0.18)
-        case .final: return Color.green.opacity(0.18)
-        }
-    }
-
-    private var foreground: Color {
-        switch status {
-        case .wip: return .orange
-        case .final: return .green
+        case .wip: return .caution
+        case .final: return .positive
         }
     }
 }

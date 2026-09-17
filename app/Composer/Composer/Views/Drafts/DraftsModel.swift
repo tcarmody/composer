@@ -43,6 +43,10 @@ final class DraftsModel: ObservableObject {
 
     @Published var listState: ListState = .idle
     @Published var editorState: EditorState = .empty
+    /// A load running over content that's already displayed. Views overlay a
+    /// delayed indicator rather than blanking the pane.
+    @Published private(set) var isListReloading = false
+    @Published private(set) var isEditorReloading = false
     @Published var selectedId: String?
     @Published var query: String = ""
     @Published var editorAttributed: NSAttributedString = NSAttributedString(string: "") {
@@ -70,16 +74,27 @@ final class DraftsModel: ObservableObject {
         autosaveTask?.cancel()
     }
 
+    /// Keep what's already loaded on screen and flag the reload, rather than
+    /// dropping to `.loading` and blanking the pane mid-browse.
+    private func beginListLoad() {
+        if case .loaded = listState { isListReloading = true } else { listState = .loading }
+    }
+
+    private func beginEditorLoad() {
+        if case .editing = editorState { isEditorReloading = true } else { editorState = .loading }
+    }
+
     func refreshList() {
         Task { [weak self] in
             guard let self else { return }
-            self.listState = .loading
+            self.beginListLoad()
             do {
                 let response = try await self.api.listDrafts()
                 self.listState = .loaded(response.drafts)
             } catch {
                 self.listState = .error(error.localizedDescription)
             }
+            self.isListReloading = false
         }
     }
 
@@ -98,9 +113,10 @@ final class DraftsModel: ObservableObject {
                 self.titleDraft = ""
                 self.statusDraft = .wip
                 self.sources = []
+                self.isEditorReloading = false
                 return
             }
-            self.editorState = .loading
+            self.beginEditorLoad()
             do {
                 let draft = try await self.api.getDraft(id: id)
                 let attributed = MarkdownConverter.attributedString(from: draft.body)
@@ -109,8 +125,10 @@ final class DraftsModel: ObservableObject {
                 self.titleDraft = draft.title ?? ""
                 self.statusDraft = draft.status
                 self.isDirty = false
+                self.isEditorReloading = false
                 await self.loadSources(for: id)
             } catch {
+                self.isEditorReloading = false
                 self.editorState = .error(error.localizedDescription)
             }
         }
