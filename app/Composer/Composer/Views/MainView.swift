@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.colorScheme) private var scheme
     @AppStorage("draftPanelWidth") private var draftPanelWidth: Double = 420
 
     private var panelVisible: Bool {
@@ -9,24 +10,31 @@ struct MainView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if app.backendStale {
-                staleBanner
+        // safeAreaInset rather than a VStack sibling: the banner becomes part
+        // of the window's safe area, so the split view below keeps its own
+        // layout and the bar can animate in and out instead of being spliced
+        // into the view tree.
+        mainSplit
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if app.backendStale {
+                    staleBanner
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
             }
-            mainSplit
-        }
-        .onChange(of: app.selectedTab) { _, _ in
-            if app.draftsModel.isDirty { app.draftsModel.save() }
-        }
+            .animation(.easeInOut(duration: 0.2), value: app.backendStale)
+            .onChange(of: app.selectedTab) { _, _ in
+                if app.draftsModel.isDirty { app.draftsModel.save() }
+            }
     }
 
     private var staleBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(StatusTone.caution.accent)
                 .accessibilityHidden(true)
             Text("Backend is running older code than this app. Restart it to pick up the latest.")
                 .font(.callout)
-            Spacer()
+            Spacer(minLength: 8)
             Button("Restart Backend") {
                 app.supervisor.restart()
             }
@@ -35,9 +43,18 @@ struct MainView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.yellow.opacity(0.25))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Backend out of date. Restart it to pick up the latest.")
+        .frame(maxWidth: .infinity)
+        // A flat yellow wash went murky olive under the dark palettes and left
+        // the label at whatever contrast happened to fall out. The bar
+        // material carries the appearance; the tone is a wash on top of it.
+        .background {
+            StatusTone.caution.fill(scheme).background(.bar)
+        }
+        .overlay(alignment: .bottom) { Divider() }
+        // Deliberately not `children: .combine` — that folds the button into
+        // one element and VoiceOver loses the only way to act on the warning.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Backend out of date")
     }
 
     private var mainSplit: some View {
