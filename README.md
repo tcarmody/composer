@@ -26,6 +26,7 @@ Builds from the command line with SwiftPM — no Xcode app, no xcodegen:
 ```bash
 make app                                 # release, host arch, ad-hoc signed
 make app-run                             # ...and launch it
+make app-test                            # unit tests (Swift Testing)
 ./scripts/build-mac-app.sh --universal   # arm64 + x86_64
 ./scripts/build-mac-app.sh --sign "Apple Development: you@example.com (TEAMID)"
 ```

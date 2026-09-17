@@ -24,6 +24,15 @@ let package = Package(
                 // AskTranscriptView uses bare `/.../` regex literals.
                 .enableUpcomingFeature("BareSlashRegexLiterals"),
             ]
-        )
+        ),
+        .testTarget(
+            name: "ComposerTests",
+            dependencies: ["Composer"],
+            path: "Tests",
+            swiftSettings: [
+                .swiftLanguageMode(.v5),
+                .enableUpcomingFeature("BareSlashRegexLiterals"),
+            ]
+        ),
     ]
 )

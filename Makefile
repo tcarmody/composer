@@ -1,4 +1,4 @@
-.PHONY: setup backend web dev test clean app app-run
+.PHONY: setup backend web dev test clean app app-run app-test
 
 # One-time setup: Python venv + npm install
 setup:
@@ -34,6 +34,10 @@ app:
 # Same, then launch it
 app-run:
 	./scripts/build-mac-app.sh --run
+
+# Mac app unit tests (also runnable in Xcode via the Composer scheme)
+app-test:
+	swift test --package-path app/Composer
 
 # Typecheck + build frontend
 check:

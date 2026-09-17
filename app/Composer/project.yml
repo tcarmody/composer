@@ -46,15 +46,34 @@ targets:
         NSMainStoryboardFile: ""
         LSApplicationCategoryType: public.app-category.productivity
 
+  # Generates its own Info.plist. Do not give this target an `info:` block —
+  # pointing it at the app's plist rewrites CFBundlePackageType to BNDL, and
+  # build-mac-app.sh copies that plist straight into the .app.
+  ComposerTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Tests
+    dependencies:
+      - target: Composer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tcarmody.composer.tests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   Composer:
     build:
       targets:
         Composer: all
+        ComposerTests: [test]
     run:
       config: Debug
     test:
       config: Debug
+      targets:
+        - ComposerTests
     profile:
       config: Release
     analyze:
