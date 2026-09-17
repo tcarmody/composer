@@ -127,9 +127,18 @@ extension AppTheme {
     /// Auto defers on lists and panels so sidebar vibrancy survives.
     func fill(for role: ComposerSurfaceRole) -> Color? {
         switch role {
-        case .reading: return backgroundColor
-        case .list: return self == .auto ? nil : backgroundColor
-        case .chrome: return chromeBackground
+        case .reading:
+            // macOS 26 renders its own material behind window content and
+            // floats the toolbar over it. An opaque paint on the root blocks
+            // that, so Auto — the theme with no opinion of its own — steps out
+            // of the way. Named palettes still paint: opting out of the system
+            // appearance is the entire point of picking one.
+            if self == .auto, #available(macOS 26, *) { return nil }
+            return backgroundColor
+        case .list:
+            return self == .auto ? nil : backgroundColor
+        case .chrome:
+            return chromeBackground
         }
     }
 

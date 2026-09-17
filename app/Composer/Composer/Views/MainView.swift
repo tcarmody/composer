@@ -10,21 +10,22 @@ struct MainView: View {
     }
 
     var body: some View {
-        // safeAreaInset rather than a VStack sibling: the banner becomes part
-        // of the window's safe area, so the split view below keeps its own
-        // layout and the bar can animate in and out instead of being spliced
-        // into the view tree.
-        mainSplit
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if app.backendStale {
-                    staleBanner
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
+        // A VStack sibling, not safeAreaInset. The inset reads as the tidier
+        // option, but HSplitView's children don't honor it: the list's section
+        // header and the detail pane's action row both slide under the bar and
+        // get clipped. Stacking costs the banner nothing and keeps the split
+        // view's own layout intact.
+        VStack(spacing: 0) {
+            if app.backendStale {
+                staleBanner
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
-            .animation(.easeInOut(duration: 0.2), value: app.backendStale)
-            .onChange(of: app.selectedTab) { _, _ in
-                if app.draftsModel.isDirty { app.draftsModel.save() }
-            }
+            mainSplit
+        }
+        .animation(.easeInOut(duration: 0.2), value: app.backendStale)
+        .onChange(of: app.selectedTab) { _, _ in
+            if app.draftsModel.isDirty { app.draftsModel.save() }
+        }
     }
 
     private var staleBanner: some View {
@@ -50,7 +51,12 @@ struct MainView: View {
         .background {
             StatusTone.caution.fill(scheme).background(.bar)
         }
-        .overlay(alignment: .bottom) { Divider() }
+        .overlay(alignment: .bottom) {
+            // macOS 26 draws its own scroll edge effect where content meets
+            // chrome; a manual hairline competes with it. Older systems still
+            // want the separator.
+            if #unavailable(macOS 26) { Divider() }
+        }
         // Deliberately not `children: .combine` — that folds the button into
         // one element and VoiceOver loses the only way to act on the warning.
         .accessibilityElement(children: .contain)

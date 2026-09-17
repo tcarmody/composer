@@ -44,6 +44,19 @@ extension View {
     }
 }
 
+/// This indicator floats over content rather than sitting in it, which is the
+/// one thing MACUX allows glass on — the navigation layer, never the content
+/// itself. Older systems get the material that reads closest to it.
+private struct FloatingCapsuleBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26, *) {
+            content.glassEffect(.regular, in: .capsule)
+        } else {
+            content.background(.regularMaterial, in: Capsule())
+        }
+    }
+}
+
 private struct ReloadIndicator: ViewModifier {
     let isReloading: Bool
     @State private var isVisible = false
@@ -55,7 +68,7 @@ private struct ReloadIndicator: ViewModifier {
                     ProgressView()
                         .controlSize(.small)
                         .padding(8)
-                        .background(.regularMaterial, in: Capsule())
+                        .modifier(FloatingCapsuleBackground())
                         .padding(.top, 8)
                         .accessibilityLabel("Loading")
                         .transition(.opacity)
