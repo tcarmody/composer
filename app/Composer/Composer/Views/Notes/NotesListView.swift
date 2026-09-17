@@ -76,7 +76,7 @@ private struct NoteRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
-            Text(formatDateTime(note.updatedAt))
+            Text(BackendDate.dateTime(note.updatedAt))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }

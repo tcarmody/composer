@@ -185,7 +185,7 @@ struct ItemDetailView: View {
                     Text("·")
                 }
                 if let published = item.publishedAt {
-                    Text(formatDateTime(published))
+                    Text(BackendDate.dateTime(published))
                 }
                 if let urlString = item.url, let url = URL(string: urlString) {
                     Text("·")

@@ -146,7 +146,7 @@ private struct ItemRowView: View {
                     .font(typeface.rowTitle)
                     .lineLimit(2)
                 Spacer(minLength: 8)
-                Text(formatDate(item.publishedAt ?? item.promotedAt))
+                Text(BackendDate.shortDate(item.publishedAt ?? item.promotedAt))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -173,34 +173,4 @@ private struct ItemRowView: View {
         if item.isArchived { parts.append("archived") }
         return parts.joined(separator: ", ")
     }
-}
-
-func formatDate(_ iso: String?) -> String {
-    guard let iso, !iso.isEmpty else { return "" }
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let d = formatter.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) {
-        return d.formatted(.dateTime.month(.abbreviated).day())
-    }
-    let fallback = DateFormatter()
-    fallback.dateFormat = "yyyy-MM-dd HH:mm:ss"
-    if let d = fallback.date(from: iso) {
-        return d.formatted(.dateTime.month(.abbreviated).day())
-    }
-    return iso
-}
-
-func formatDateTime(_ iso: String?) -> String {
-    guard let iso, !iso.isEmpty else { return "" }
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let d = formatter.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) {
-        return d.formatted(date: .abbreviated, time: .shortened)
-    }
-    let fallback = DateFormatter()
-    fallback.dateFormat = "yyyy-MM-dd HH:mm:ss"
-    if let d = fallback.date(from: iso) {
-        return d.formatted(date: .abbreviated, time: .shortened)
-    }
-    return iso
 }

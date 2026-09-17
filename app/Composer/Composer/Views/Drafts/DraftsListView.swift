@@ -80,7 +80,7 @@ private struct DraftRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
-            Text(formatDateTime(draft.updatedAt))
+            Text(BackendDate.dateTime(draft.updatedAt))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
