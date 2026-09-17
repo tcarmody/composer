@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // Appearance tokens reach every surface through the environment instead of
@@ -50,7 +51,6 @@ extension View {
             .environment(\.composerTypeface, typeface)
             .environment(\.composerDensity, density)
             .tint(theme.accentColor)
-            .preferredColorScheme(theme.colorScheme)
     }
 }
 
@@ -141,6 +141,19 @@ extension AppTheme {
         case .auto: return nil
         case .manuscript, .forest, .ocean: return .light
         case .noir, .ember, .midnight: return .dark
+        }
+    }
+
+    /// Applied to `NSApp` rather than through `preferredColorScheme`, because
+    /// a scene modifier only reaches its own scene: Settings, panels, and
+    /// anything else the app opens would keep the system appearance and clash
+    /// with a themed main window. `nil` hands control back to the system.
+    var appKitAppearance: NSAppearance? {
+        switch colorScheme {
+        case .dark: return NSAppearance(named: .darkAqua)
+        case .light: return NSAppearance(named: .aqua)
+        case .none: return nil
+        @unknown default: return nil
         }
     }
 }
