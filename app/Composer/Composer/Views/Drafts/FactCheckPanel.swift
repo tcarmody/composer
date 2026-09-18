@@ -16,7 +16,7 @@ struct FactCheckPanel: View {
                 // Plain VStack, not LazyVStack: the claim list is small, and a
                 // LazyVStack here self-invalidates its item-phase cache during
                 // sizeThatFits (propagate_dirty), causing an infinite relayout loop.
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Spacing.small) {
                     if case .error(let msg) = model.factCheckPhase {
                         errorBanner(msg)
                     }
@@ -25,17 +25,17 @@ struct FactCheckPanel: View {
                         Text("No verifiable claims found in this passage.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .padding(12)
+                            .padding(Spacing.medium)
                     }
                     if model.factCheckClaims.isEmpty,
                        case .extracting = model.factCheckPhase {
-                        HStack(spacing: 8) {
+                        HStack(spacing: Spacing.small) {
                             ProgressView().controlSize(.small)
                             Text("Looking for verifiable claims…")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        .padding(12)
+                        .padding(Spacing.medium)
                     }
                     ForEach(model.factCheckClaims) { claim in
                         ClaimRow(
@@ -45,7 +45,7 @@ struct FactCheckPanel: View {
                         )
                     }
                 }
-                .padding(10)
+                .padding(Spacing.medium)
             }
         }
         .frame(width: 360)
@@ -53,8 +53,8 @@ struct FactCheckPanel: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: Spacing.medium) {
+            VStack(alignment: .leading, spacing: Spacing.tight) {
                 Text("Fact-check").font(.headline)
                 Text(statusText)
                     .font(.caption)
@@ -70,8 +70,8 @@ struct FactCheckPanel: View {
             .buttonStyle(.borderless)
             .help("Close")
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Spacing.large)
+        .padding(.vertical, Spacing.medium)
     }
 
     private var statusText: String {
@@ -97,7 +97,7 @@ struct FactCheckPanel: View {
         Text(message)
             .font(.caption)
             .foregroundStyle(StatusTone.negative.accent)
-            .padding(10)
+            .padding(Spacing.medium)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(StatusTone.negative.fill(scheme))
             .cornerRadius(6)
@@ -113,8 +113,8 @@ private struct ClaimRow: View {
     @State private var applyFailed = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.small) {
+            HStack(alignment: .top, spacing: Spacing.small) {
                 badge
                 Text("\u{201C}\(claim.claim)\u{201D}")
                     .font(.callout)
@@ -130,7 +130,7 @@ private struct ClaimRow: View {
             }
             switch claim.status {
             case .pending:
-                HStack(spacing: 6) {
+                HStack(spacing: Spacing.small) {
                     ProgressView().controlSize(.small)
                     Text("Searching the web…").font(.caption).foregroundStyle(.secondary)
                 }
@@ -151,9 +151,9 @@ private struct ClaimRow: View {
                     correctionBlock(correction)
                 }
                 if !claim.sources.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Spacing.xsmall) {
                         ForEach(claim.sources.prefix(4), id: \.id) { source in
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: Spacing.tight) {
                                 Button {
                                     if let url = URL(string: source.url) {
                                         NSWorkspace.shared.open(url)
@@ -174,11 +174,11 @@ private struct ClaimRow: View {
                             }
                         }
                     }
-                    .padding(.top, 2)
+                    .padding(.top, Spacing.tight)
                 }
             }
         }
-        .padding(10)
+        .padding(Spacing.medium)
         .background(rowBackground)
         .overlay(
             RoundedRectangle(cornerRadius: 6)
@@ -187,12 +187,12 @@ private struct ClaimRow: View {
     }
 
     private func correctionBlock(_ correction: String) -> some View {
-        HStack(alignment: .top, spacing: 6) {
+        HStack(alignment: .top, spacing: Spacing.small) {
             Rectangle()
                 .fill(StatusTone.caution.accent)
                 .frame(width: 2)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: Spacing.xsmall) {
+                HStack(spacing: Spacing.small) {
                     Text("Suggested correction")
                         .font(.caption2.bold())
                         .foregroundStyle(.orange)
@@ -243,7 +243,7 @@ private struct ClaimRow: View {
             .foregroundStyle(style.tone.accent)
             .font(.system(size: 14))
             .frame(width: 16, height: 16)
-            .padding(.top, 2)
+            .padding(.top, Spacing.tight)
     }
 
     /// Symbol and tone travel together — the glyph and the hairline around the

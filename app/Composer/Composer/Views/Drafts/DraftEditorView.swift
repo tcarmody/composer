@@ -112,7 +112,7 @@ struct DraftEditorView: View {
 
     private var currentDeleteAction: DeleteAction? {
         guard case .editing(let draft, _, _) = model.editorState else { return nil }
-        return DeleteAction(title: "Delete Draft", isEnabled: true) {
+        return DeleteAction(title: "Delete Draft…", isEnabled: true) {
             model.requestDelete(draft)
         }
     }
@@ -270,7 +270,7 @@ struct DraftEditorView: View {
     }
 
     private func fullTitleBar(draft: Draft) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Spacing.medium) {
             TextField("Untitled", text: $model.titleDraft, onEditingChanged: { _ in model.titleChanged() })
                 .textFieldStyle(.plain)
                 .font(.title2).bold()
@@ -297,12 +297,12 @@ struct DraftEditorView: View {
             }
             sourcesButton
         }
-        .padding(16)
+        .padding(Spacing.large)
         .composerSurface(.chrome)
     }
 
     private func compactTitleBar(draft: Draft) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.small) {
             TextField("Untitled", text: $model.titleDraft, onEditingChanged: { _ in model.titleChanged() })
                 .textFieldStyle(.plain)
                 .font(.headline)
@@ -348,7 +348,7 @@ struct DraftEditorView: View {
                     Button("Save", action: { model.save() })
                         .keyboardShortcut("s", modifiers: .command)
                         .disabled(!model.isDirty)
-                    Button("Delete", role: .destructive) { model.requestDelete(draft) }
+                    Button("Delete…", role: .destructive) { model.requestDelete(draft) }
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
@@ -358,8 +358,8 @@ struct DraftEditorView: View {
             .help("Draft actions")
             .accessibilityLabel("Draft actions")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Spacing.medium)
+        .padding(.vertical, Spacing.small)
         .composerSurface(.chrome)
     }
 
@@ -390,9 +390,9 @@ struct DraftEditorView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
+            .padding(.horizontal, Spacing.large)
+            .padding(.top, Spacing.medium)
+            .padding(.bottom, Spacing.small)
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -431,7 +431,7 @@ struct DraftEditorView: View {
     }
 
     private func sourceRow(_ group: GroupedSource) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.xsmall) {
             HStack(alignment: .firstTextBaseline) {
                 Button {
                     app.openItem(id: group.id)
@@ -462,8 +462,8 @@ struct DraftEditorView: View {
                 .font(.caption2)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Spacing.large)
+        .padding(.vertical, Spacing.medium)
     }
 
     private func filename(for draft: Draft, ext: String) -> String {
@@ -550,16 +550,16 @@ struct DraftEditorView: View {
         case .idle:
             EmptyView()
         case .running(let action):
-            VStack(spacing: 16) {
+            VStack(spacing: Spacing.large) {
                 ProgressView()
                 Text("\(action.label) in progress…").font(.headline)
                 Text(action.description).font(.caption).foregroundStyle(.secondary)
                 Button("Cancel") { model.dismissAssist() }
             }
-            .padding(32)
+            .padding(Spacing.xxxlarge)
             .frame(minWidth: 360)
         case .error(let msg):
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: Spacing.medium) {
                 Label("Assist failed", systemImage: "exclamationmark.triangle")
                     .font(.headline)
                 Text(msg).font(.caption).foregroundStyle(.secondary)
@@ -569,10 +569,10 @@ struct DraftEditorView: View {
                         .keyboardShortcut(.defaultAction)
                 }
             }
-            .padding(20)
+            .padding(Spacing.xlarge)
             .frame(minWidth: 420)
         case .ready(let action, let selection, let suggestion):
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: Spacing.medium) {
                 HStack {
                     Label(action.label, systemImage: "sparkles").font(.headline)
                     Spacer()
@@ -598,7 +598,7 @@ struct DraftEditorView: View {
                         .keyboardShortcut(.defaultAction)
                 }
             }
-            .padding(20)
+            .padding(Spacing.xlarge)
         }
     }
 
@@ -621,7 +621,7 @@ struct DraftEditorView: View {
     }
 
     private var linkSheet: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.medium) {
             Text("Insert link").font(.headline)
             TextField("https://…", text: $linkURLDraft)
                 .textFieldStyle(.roundedBorder)
@@ -639,6 +639,6 @@ struct DraftEditorView: View {
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
+        .padding(Spacing.xlarge)
     }
 }

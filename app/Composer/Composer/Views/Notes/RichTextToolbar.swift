@@ -13,7 +13,7 @@ struct RichTextToolbar: View {
     @EnvironmentObject private var app: AppState
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Spacing.xsmall) {
             Menu {
                 Button("Body") { onBody() }
                 Divider()
@@ -77,8 +77,8 @@ struct RichTextToolbar: View {
             Spacer()
         }
         .buttonStyle(.borderless)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, Spacing.medium)
+        .padding(.vertical, Spacing.small)
         .composerSurface(.chrome)
     }
 }

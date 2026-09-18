@@ -26,7 +26,7 @@ struct DraftSidePanelView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.small) {
             Image(systemName: "doc.text")
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
@@ -72,8 +72,8 @@ struct DraftSidePanelView: View {
             .help("Hide Draft Panel (⌥⌘D)")
             .accessibilityLabel("Hide Draft Panel")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Spacing.medium)
+        .padding(.vertical, Spacing.small)
     }
 
     @ViewBuilder
@@ -87,22 +87,17 @@ struct DraftSidePanelView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "doc.text")
-                .font(.system(size: 32))
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            Text("No current draft").font(.headline)
+        ContentUnavailableView {
+            Label("No current draft", systemImage: "doc.text")
+        } description: {
             Text("Start one to compose alongside your reading.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+        } actions: {
             Button { model.create() } label: {
                 Label("New Draft", systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
         }
-        .padding(24)
+        // Greedy on purpose — see AskCitationsView.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 

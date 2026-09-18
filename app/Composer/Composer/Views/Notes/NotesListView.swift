@@ -66,7 +66,7 @@ private struct NoteRow: View {
     let density: ListDensity
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: Spacing.xsmall) {
             Text(displayTitle)
                 .font(typeface.rowTitle)
                 .lineLimit(1)

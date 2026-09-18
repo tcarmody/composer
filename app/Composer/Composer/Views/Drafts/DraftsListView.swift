@@ -66,8 +66,8 @@ private struct DraftRow: View {
     let density: ListDensity
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.xsmall) {
+            HStack(spacing: Spacing.small) {
                 Text(displayTitle)
                     .font(typeface.rowTitle)
                     .lineLimit(1)
@@ -118,8 +118,8 @@ private struct StatusBadge: View {
     var body: some View {
         Text(status.label)
             .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 1)
+            .padding(.horizontal, Spacing.small)
+            .padding(.vertical, Spacing.tight)
             .background(tone.fill(scheme), in: Capsule())
             .foregroundStyle(tone.accent)
     }

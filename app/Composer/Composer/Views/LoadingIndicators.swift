@@ -67,9 +67,9 @@ private struct ReloadIndicator: ViewModifier {
                 if isVisible {
                     ProgressView()
                         .controlSize(.small)
-                        .padding(8)
+                        .padding(Spacing.small)
                         .modifier(FloatingCapsuleBackground())
-                        .padding(.top, 8)
+                        .padding(.top, Spacing.small)
                         .accessibilityLabel("Loading")
                         .transition(.opacity)
                 }

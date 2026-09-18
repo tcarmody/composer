@@ -11,15 +11,19 @@ struct AskView: View {
     var body: some View {
         HSplitView {
             VStack(spacing: 0) {
+                // The transcript takes the slack so the input bar stays pinned
+                // to the bottom. Without it HSplitView sizes to content and
+                // both columns float in the middle of the window.
                 AskTranscriptView(model: model)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
                 AskInputBar(model: model)
             }
-            .frame(minWidth: 420)
+            .frame(minWidth: 420, maxHeight: .infinity)
             .composerSurface(.reading)
 
             AskCitationsView(model: model, onOpenSource: openSource)
-                .frame(minWidth: 260, idealWidth: 320)
+                .frame(minWidth: 260, idealWidth: 320, maxHeight: .infinity)
                 .composerSurface(.chrome)
         }
         .focusedSceneValue(\.refreshAction, RefreshAction {
@@ -42,8 +46,8 @@ private struct AskInputBar: View {
     @FocusState private var inputFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.small) {
+            HStack(spacing: Spacing.small) {
                 Picker("Scope", selection: $model.scope) {
                     ForEach(SourceFilter.allCases) { s in
                         Text(s.rawValue).tag(s)
@@ -74,7 +78,7 @@ private struct AskInputBar: View {
                 }
             }
         }
-        .padding(12)
+        .padding(Spacing.medium)
         .onAppear { inputFocused = true }
     }
 }

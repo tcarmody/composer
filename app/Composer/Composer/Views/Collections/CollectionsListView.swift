@@ -23,7 +23,7 @@ struct CollectionsListView: View {
     }
 
     private var newCollectionSheet: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.medium) {
             Text("New collection").font(.headline)
             TextField("Collection name", text: $newName)
                 .textFieldStyle(.roundedBorder)
@@ -41,7 +41,7 @@ struct CollectionsListView: View {
                     .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .padding(20)
+        .padding(Spacing.xlarge)
     }
 
     @ViewBuilder
@@ -69,7 +69,7 @@ struct CollectionsListView: View {
                     set: { model.select($0) }
                 )) {
                     ForEach(filtered) { c in
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Spacing.tight) {
                             Text(c.name).font(typeface.rowTitle)
                             Text("\(c.memberCount) item\(c.memberCount == 1 ? "" : "s")")
                                 .font(.caption)

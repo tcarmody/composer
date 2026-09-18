@@ -14,12 +14,12 @@ struct AskCitationsView: View {
                     Text("\(model.citations.count)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, Spacing.small)
+                        .padding(.vertical, Spacing.tight)
                         .background(Color.secondary.opacity(0.12), in: Capsule())
                 }
             }
-            .padding(12)
+            .padding(Spacing.medium)
 
             Divider()
 
@@ -35,7 +35,7 @@ struct AskCitationsView: View {
 
             if !model.citations.isEmpty {
                 Divider()
-                HStack(spacing: 4) {
+                HStack(spacing: Spacing.xsmall) {
                     Image(systemName: model.vectorSearchUsed ? "circle.fill" : "circle")
                         .font(.system(size: 7))
                         .foregroundStyle(model.vectorSearchUsed ? .green : .secondary)
@@ -44,30 +44,21 @@ struct AskCitationsView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.horizontal, Spacing.medium)
+                .padding(.vertical, Spacing.small)
             }
         }
     }
 
     private var emptyState: some View {
-        VStack(spacing: 6) {
-            Spacer()
-            Image(systemName: "books.vertical")
-                .font(.system(size: 28))
-                .foregroundStyle(.secondary)
-            Text("No sources yet")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            Text("Ask a question to see cited passages.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 220)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 16)
+        // Greedy on purpose. As a plain VStack child it sizes to its content
+        // and the whole column — header included — floats to the middle.
+        ContentUnavailableView(
+            "No sources yet",
+            systemImage: "books.vertical",
+            description: Text("Ask a question to see cited passages.")
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -76,8 +67,8 @@ private struct CitationRow: View {
     let onOpen: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.xsmall) {
+            HStack(spacing: Spacing.small) {
                 Text("[\(citation.index)]")
                     .font(.caption.monospaced().weight(.semibold))
                     .foregroundStyle(Color.accentColor)
@@ -110,7 +101,7 @@ private struct CitationRow: View {
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.xsmall)
     }
 
     private var icon: String {

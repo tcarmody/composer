@@ -97,7 +97,7 @@ private struct GeneralSettingsPane: View {
                                 .font(.system(.caption, design: .monospaced))
                                 .textSelection(.enabled)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(6)
+                                .padding(Spacing.small)
                         }
                         .frame(height: 120)
                         .background(Color(nsColor: .textBackgroundColor))
@@ -220,7 +220,7 @@ private struct AISettingsPane: View {
                         runReindex()
                     } label: {
                         if case .running = reindexState {
-                            HStack(spacing: 8) {
+                            HStack(spacing: Spacing.small) {
                                 ProgressView().controlSize(.small)
                                 Text("Rebuilding…")
                             }
@@ -241,9 +241,9 @@ private struct AISettingsPane: View {
     @ViewBuilder
     private func llmKeyRow(_ def: LLMKeyDef) -> some View {
         let status = llmKeys[def.name]
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.small) {
             HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Spacing.tight) {
                     Text(def.label).font(.subheadline).bold()
                     Text(def.description)
                         .font(.caption)
@@ -271,7 +271,7 @@ private struct AISettingsPane: View {
                 Spacer()
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.xsmall)
     }
 
     private func draftBinding(for name: String) -> Binding<String> {
@@ -351,7 +351,7 @@ private struct AISettingsPane: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         case .done(let counts, let at):
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.tight) {
                 Text(summary(counts))
                     .font(.caption)
                 Text("Last run \(at, format: .relative(presentation: .named))")

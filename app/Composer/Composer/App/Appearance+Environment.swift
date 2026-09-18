@@ -167,6 +167,26 @@ extension AppTheme {
     }
 }
 
+// MARK: - Spacing
+
+/// A 4pt spacing grid. The app had fourteen distinct padding values, most of
+/// them within two points of each other, which reads as drift rather than
+/// intent. Reach for a step here instead of a literal.
+///
+/// `tight` is the one deliberate half-step: control interiors — badge and
+/// capsule padding — where 4pt is visibly too much. `0` stays a literal,
+/// because it means "no gap", not "the smallest gap".
+enum Spacing {
+    static let tight: CGFloat = 2
+    static let xsmall: CGFloat = 4
+    static let small: CGFloat = 8
+    static let medium: CGFloat = 12
+    static let large: CGFloat = 16
+    static let xlarge: CGFloat = 20
+    static let xxlarge: CGFloat = 24
+    static let xxxlarge: CGFloat = 32
+}
+
 // MARK: - Status tones
 
 /// Semantic tones for badges, verdicts, and error banners. Views ask for a

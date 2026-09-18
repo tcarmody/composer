@@ -79,7 +79,7 @@ struct NoteEditorView: View {
     }
 
     private func titleBar(note: Note) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Spacing.medium) {
             TextField("Untitled", text: $model.titleDraft, onEditingChanged: { _ in model.titleChanged() })
                 .textFieldStyle(.plain)
                 .font(.title2).bold()
@@ -93,12 +93,12 @@ struct NoteEditorView: View {
                     .accessibilityLabel("Unsaved changes")
             }
         }
-        .padding(16)
+        .padding(Spacing.large)
         .composerSurface(.chrome)
     }
 
     private var linkSheet: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.medium) {
             Text("Insert link").font(.headline)
             TextField("https://…", text: $linkURLDraft)
                 .textFieldStyle(.roundedBorder)
@@ -116,7 +116,7 @@ struct NoteEditorView: View {
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
+        .padding(Spacing.xlarge)
     }
 }
 

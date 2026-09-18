@@ -29,7 +29,7 @@ struct MainView: View {
     }
 
     private var staleBanner: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.small) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(StatusTone.caution.accent)
                 .accessibilityHidden(true)
@@ -42,8 +42,8 @@ struct MainView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Spacing.medium)
+        .padding(.vertical, Spacing.small)
         .frame(maxWidth: .infinity)
         // A flat yellow wash went murky olive under the dark palettes and left
         // the label at whatever contrast happened to fall out. The bar
@@ -111,6 +111,7 @@ struct MainView: View {
 
             if panelVisible {
                 DraftSidePanelView(model: app.draftsModel)
+                    .frame(maxHeight: .infinity)
                     .frame(minWidth: 320, idealWidth: draftPanelWidth, maxWidth: 800)
                     .background(
                         GeometryReader { geo in
@@ -121,6 +122,11 @@ struct MainView: View {
                     )
             }
         }
+        // HSplitView sizes to its content. Tabs whose body is greedy (the
+        // lists) filled the window anyway; Ask, whose transcript collapses to
+        // an empty state, left the split centered with dead space above and
+        // below — and pushed the banner down off the top edge with it.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

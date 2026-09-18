@@ -140,7 +140,7 @@ private struct ItemRowView: View {
     let density: ListDensity
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.xsmall) {
             HStack(alignment: .firstTextBaseline) {
                 Text(item.title)
                     .font(typeface.rowTitle)

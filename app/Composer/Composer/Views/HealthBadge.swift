@@ -4,7 +4,7 @@ struct HealthBadge: View {
     let status: HealthStatus
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Spacing.small) {
             Circle()
                 .fill(dotColor)
                 .frame(width: 8, height: 8)

@@ -50,7 +50,7 @@ struct CollectionDetailView: View {
 
     private var currentDeleteAction: DeleteAction? {
         guard case .loaded(let outline) = model.detailState else { return nil }
-        return DeleteAction(title: "Delete Collection", isEnabled: true) {
+        return DeleteAction(title: "Delete Collection…", isEnabled: true) {
             pendingDelete = outline.collection
         }
     }
@@ -84,12 +84,12 @@ struct CollectionDetailView: View {
             }
             Divider()
             InlineNoteComposer(onSubmit: { model.addInlineNote(body: $0) })
-                .padding(16)
+                .padding(Spacing.large)
         }
     }
 
     private func header(_ collection: Collection) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.xsmall) {
             Text(collection.name).font(.title2).bold()
             if let desc = collection.description, !desc.isEmpty {
                 Text(desc).font(.subheadline).foregroundStyle(.secondary)
@@ -99,7 +99,7 @@ struct CollectionDetailView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        .padding(Spacing.large)
     }
 
     private func compile(full: Bool) {
@@ -111,16 +111,14 @@ struct CollectionDetailView: View {
     }
 
     private var emptyState: some View {
-        VStack {
-            Text("Empty collection.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Text("Add items from the Library, or compose an inline note below.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
+        // Greedy on purpose — see AskCitationsView. It sits between the header
+        // and the inline composer, so without this the column collapses.
+        ContentUnavailableView(
+            "Empty collection",
+            systemImage: "tray",
+            description: Text("Add items from the Library, or compose an inline note below.")
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(40)
     }
 
     private func membersList(_ members: [OutlineNode]) -> some View {
@@ -145,8 +143,8 @@ private struct OutlineNodeRow: View {
     @Environment(\.composerTypeface) private var typeface
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .top, spacing: Spacing.medium) {
+            VStack(alignment: .leading, spacing: Spacing.xsmall) {
                 Text(kindLabel)
                     .font(.caption2).bold()
                     .foregroundStyle(.secondary)
@@ -164,7 +162,7 @@ private struct OutlineNodeRow: View {
             .help("Remove from collection")
             .accessibilityLabel("Remove from collection")
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.xsmall)
     }
 
     private var kindLabel: String {
@@ -180,7 +178,7 @@ private struct OutlineNodeRow: View {
     @ViewBuilder
     private var content: some View {
         if node.memberType == .item, let item = node.item {
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: Spacing.xsmall) {
                 Text(item.title ?? "(untitled)")
                     .font(typeface.rowTitle)
                 if let summary = item.summary, !summary.isEmpty {
@@ -191,7 +189,7 @@ private struct OutlineNodeRow: View {
                 }
             }
         } else if node.memberType == .note, let note = node.note {
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: Spacing.xsmall) {
                 if let title = note.title, !title.isEmpty {
                     Text(title).font(typeface.rowTitle)
                 }
@@ -208,7 +206,7 @@ private struct InlineNoteComposer: View {
     @State private var text: String = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.small) {
             Text("Add inline note")
                 .font(.caption).bold()
                 .foregroundStyle(.secondary)
