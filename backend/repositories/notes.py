@@ -5,6 +5,8 @@ Notes are first-class objects. They can stand alone, be attached to an
 item (item_notes), or be added to a collection (collection_members).
 """
 
+from __future__ import annotations
+
 import sqlite3
 import uuid
 from dataclasses import dataclass

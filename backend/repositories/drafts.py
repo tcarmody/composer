@@ -6,6 +6,8 @@ or be members of a collection. Storage mirrors notes (markdown body +
 optional title) with an additional status field for wip/final.
 """
 
+from __future__ import annotations
+
 import sqlite3
 import uuid
 from dataclasses import dataclass

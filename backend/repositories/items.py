@@ -7,6 +7,8 @@ promoted_at, and archived_at are preserved so links and archive state
 survive a refresh.
 """
 
+from __future__ import annotations
+
 import json
 import sqlite3
 import uuid

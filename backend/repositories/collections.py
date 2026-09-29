@@ -6,6 +6,8 @@ an item reference or a note (drafts added in Phase 4). Position is
 1-based within a collection and densely re-numbered on reorder.
 """
 
+from __future__ import annotations
+
 import sqlite3
 import uuid
 from dataclasses import dataclass

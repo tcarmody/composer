@@ -10,6 +10,8 @@ on every save we delete the existing chunks and insert the new ones,
 so chunk_index values stay dense.
 """
 
+from __future__ import annotations
+
 import sqlite3
 import struct
 import uuid
