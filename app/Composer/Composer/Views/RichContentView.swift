@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 struct RichContentView: NSViewRepresentable {
+    @Environment(\.composerTheme) private var theme
     let content: String
-    var theme: AppTheme = .auto
     var hasCurrentDraft: Bool = false
     var onQuote: ((QuoteKind, String) -> Void)? = nil
 

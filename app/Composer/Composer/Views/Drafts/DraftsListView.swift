@@ -2,7 +2,7 @@ import SwiftUI
 
 struct DraftsListView: View {
     @ObservedObject var model: DraftsModel
-    @EnvironmentObject private var app: AppState
+    @Environment(\.composerDensity) private var density
 
     var body: some View {
         content
@@ -21,7 +21,7 @@ struct DraftsListView: View {
     private var content: some View {
         switch model.listState {
         case .idle, .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            DelayedProgressView()
         case .error(let msg):
             Text("Failed to load: \(msg)")
                 .font(.caption)
@@ -42,10 +42,12 @@ struct DraftsListView: View {
                     set: { model.select($0) }
                 )) {
                     ForEach(filtered) { draft in
-                        DraftRow(draft: draft, density: app.listDensity).tag(draft.id)
+                        DraftRow(draft: draft, density: density).tag(draft.id)
                     }
                 }
                 .listStyle(.inset)
+                .composerSurface(.list)
+                .reloadIndicator(model.isListReloading)
             }
         }
     }
@@ -59,14 +61,15 @@ struct DraftsListView: View {
 }
 
 private struct DraftRow: View {
+    @Environment(\.composerTypeface) private var typeface
     let draft: Draft
     let density: ListDensity
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.xsmall) {
+            HStack(spacing: Spacing.small) {
                 Text(displayTitle)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(typeface.rowTitle)
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 StatusBadge(status: draft.status)
@@ -77,7 +80,7 @@ private struct DraftRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
-            Text(formatDateTime(draft.updatedAt))
+            Text(BackendDate.dateTime(draft.updatedAt))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -109,28 +112,22 @@ private struct DraftRow: View {
 }
 
 private struct StatusBadge: View {
+    @Environment(\.colorScheme) private var scheme
     let status: DraftStatus
 
     var body: some View {
         Text(status.label)
             .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 1)
-            .background(background, in: Capsule())
-            .foregroundStyle(foreground)
+            .padding(.horizontal, Spacing.small)
+            .padding(.vertical, Spacing.tight)
+            .background(tone.fill(scheme), in: Capsule())
+            .foregroundStyle(tone.accent)
     }
 
-    private var background: Color {
+    private var tone: StatusTone {
         switch status {
-        case .wip: return Color.orange.opacity(0.18)
-        case .final: return Color.green.opacity(0.18)
-        }
-    }
-
-    private var foreground: Color {
-        switch status {
-        case .wip: return .orange
-        case .final: return .green
+        case .wip: return .caution
+        case .final: return .positive
         }
     }
 }

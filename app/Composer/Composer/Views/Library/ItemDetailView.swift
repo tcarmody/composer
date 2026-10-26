@@ -3,10 +3,23 @@ import SwiftUI
 struct ItemDetailView: View {
     @ObservedObject var model: LibraryModel
     @EnvironmentObject private var app: AppState
+    @Environment(\.composerTypeface) private var typeface
     @State private var showDeleteConfirm = false
     @State private var pendingDelete: Item?
 
     var body: some View {
+        // The surface wraps the whole switch, not just the loaded case, so the
+        // empty and error states stay in the palette too.
+        Group {
+            detail
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .composerSurface(.reading)
+        .reloadIndicator(model.isDetailReloading)
+    }
+
+    @ViewBuilder
+    private var detail: some View {
         switch model.detailState {
         case .empty:
             ContentUnavailableView(
@@ -15,7 +28,7 @@ struct ItemDetailView: View {
                 description: Text("Pick an item from the library to see its contents.")
             )
         case .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            DelayedProgressView()
         case .error(let msg):
             ContentUnavailableView(
                 "Failed to load",
@@ -40,11 +53,11 @@ struct ItemDetailView: View {
     @ViewBuilder
     private func itemView(_ item: Item) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: Spacing.xlarge) {
                 header(item)
                 if let summary = item.summary, !summary.isEmpty {
                     section("Summary", sendableText: summary, item: item) {
-                        RichContentView(content: summary, theme: app.theme, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
+                        RichContentView(content: summary, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
                             app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
                         }
                     }
@@ -55,11 +68,11 @@ struct ItemDetailView: View {
                         sendableText: item.keyPoints.map { "- \($0)" }.joined(separator: "\n"),
                         item: item
                     ) {
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: Spacing.small) {
                             ForEach(Array(item.keyPoints.enumerated()), id: \.offset) { _, kp in
-                                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                HStack(alignment: .firstTextBaseline, spacing: Spacing.small) {
                                     Text("•").foregroundStyle(.secondary)
-                                    RichContentView(content: kp, theme: app.theme, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
+                                    RichContentView(content: kp, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
                                         app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
                                     }
                                 }
@@ -72,7 +85,7 @@ struct ItemDetailView: View {
                         ForEach(item.keywords, id: \.self) { kw in
                             Text(kw)
                                 .font(.caption)
-                                .padding(.horizontal, 8).padding(.vertical, 2)
+                                .padding(.horizontal, Spacing.small).padding(.vertical, Spacing.tight)
                                 .background(Color.secondary.opacity(0.12))
                                 .clipShape(Capsule())
                         }
@@ -80,14 +93,14 @@ struct ItemDetailView: View {
                 }
                 if let content = item.content, !content.isEmpty {
                     section("Full text") {
-                        RichContentView(content: content, theme: app.theme, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
+                        RichContentView(content: content, hasCurrentDraft: app.hasCurrentDraft) { kind, text in
                             app.quoteAs(kind: kind, selection: text, source: item.quoteSource)
                         }
                     }
                 }
                 if !item.relatedLinks.isEmpty {
                     section("Related") {
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: Spacing.small) {
                             ForEach(item.relatedLinks, id: \.url) { link in
                                 if let url = URL(string: link.url) {
                                     Link(link.title ?? link.url, destination: url)
@@ -100,19 +113,16 @@ struct ItemDetailView: View {
                     }
                 }
             }
-            .padding(24)
+            .padding(Spacing.xxlarge)
             .frame(maxWidth: 760, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(app.theme.backgroundColor)
-        .foregroundStyle(app.theme.textColor, app.theme.secondaryTextColor)
-        .tint(app.theme.accentColor)
-        .font(app.typeface.font(size: 14))
+        .font(typeface.readingBody)
     }
 
     @ViewBuilder
     private func header(_ item: Item) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.small) {
             HStack {
                 Text(sourceLine(item))
                     .font(.caption)
@@ -159,7 +169,7 @@ struct ItemDetailView: View {
                     model.toggleArchive(item)
                 }
                 .disabled(model.runningAction != nil)
-                Button("Delete", role: .destructive) {
+                Button("Delete…", role: .destructive) {
                     pendingDelete = item
                     showDeleteConfirm = true
                 }
@@ -167,7 +177,7 @@ struct ItemDetailView: View {
             }
             Text(item.title)
                 .font(.title2).bold()
-            HStack(spacing: 6) {
+            HStack(spacing: Spacing.small) {
                 if let author = item.author, !author.isEmpty {
                     Text(author)
                 }
@@ -175,7 +185,7 @@ struct ItemDetailView: View {
                     Text("·")
                 }
                 if let published = item.publishedAt {
-                    Text(formatDateTime(published))
+                    Text(BackendDate.dateTime(published))
                 }
                 if let urlString = item.url, let url = URL(string: urlString) {
                     Text("·")
@@ -203,7 +213,7 @@ struct ItemDetailView: View {
     ) -> some View {
         Button(action: action) {
             if isRunning {
-                HStack(spacing: 6) {
+                HStack(spacing: Spacing.small) {
                     ProgressView().controlSize(.small)
                     Text(runningTitle)
                 }
@@ -261,7 +271,7 @@ struct ItemDetailView: View {
         item: Item? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.small) {
             HStack {
                 Text(title)
                     .font(.caption).bold()

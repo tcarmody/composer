@@ -46,7 +46,7 @@ struct NotesView: View {
 
     private var currentDeleteAction: DeleteAction? {
         guard case .editing(let note, _, _) = model.editorState else { return nil }
-        return DeleteAction(title: "Delete Note", isEnabled: true) {
+        return DeleteAction(title: "Delete Note…", isEnabled: true) {
             model.requestDelete(note)
         }
     }

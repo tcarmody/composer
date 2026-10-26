@@ -16,7 +16,10 @@ final class AppState: ObservableObject {
         didSet { UserDefaults.standard.set(isDraftPanelVisible, forKey: "isDraftPanelVisible") }
     }
     @Published var theme: AppTheme = AppearanceDefaults.loadTheme() {
-        didSet { UserDefaults.standard.set(theme.rawValue, forKey: "appTheme") }
+        didSet {
+            UserDefaults.standard.set(theme.rawValue, forKey: "appTheme")
+            applyAppKitAppearance()
+        }
     }
     @Published var listDensity: ListDensity = AppearanceDefaults.loadDensity() {
         didSet { UserDefaults.standard.set(listDensity.rawValue, forKey: "listDensity") }
@@ -31,6 +34,13 @@ final class AppState: ObservableObject {
     }
     @Published var smartQuotesAutoConvert: Bool = AppState.loadSmartQuotesPref() {
         didSet { UserDefaults.standard.set(smartQuotesAutoConvert, forKey: "smartQuotesAutoConvert") }
+    }
+
+    /// A named palette owns the app's appearance, so every window it opens —
+    /// main, Settings, panels — resolves system colors against the right one.
+    /// Auto hands control back to the system.
+    private func applyAppKitAppearance() {
+        NSApp?.appearance = theme.appKitAppearance
     }
 
     private static func loadSmartQuotesPref() -> Bool {
@@ -49,6 +59,7 @@ final class AppState: ObservableObject {
     init() {
         self.draftsModel = DraftsModel(api: api)
         Typography.currentTypeface = AppearanceDefaults.loadTypeface()
+        applyAppKitAppearance()
         api.apiKey = apiKey.isEmpty ? nil : apiKey
         supervisor.objectWillChange
             .sink { [weak self] in self?.objectWillChange.send() }

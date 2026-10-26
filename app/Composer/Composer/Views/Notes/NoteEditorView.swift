@@ -18,7 +18,7 @@ struct NoteEditorView: View {
                     description: Text("Pick a note from the list, or create a new one.")
                 )
             case .loading:
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                DelayedProgressView()
             case .error(let msg):
                 ContentUnavailableView(
                     "Failed to load",
@@ -30,6 +30,9 @@ struct NoteEditorView: View {
                     .sheet(isPresented: $showLinkSheet) { linkSheet }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .composerSurface(.reading)
+        .reloadIndicator(model.isEditorReloading)
         .confirmationDialog(
             "Delete this note?",
             isPresented: Binding(
@@ -72,14 +75,11 @@ struct NoteEditorView: View {
             RichTextEditorHosted(attributed: $model.editorAttributed, commands: commands, theme: app.theme)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(app.theme.backgroundColor)
-        .foregroundStyle(app.theme.textColor, app.theme.secondaryTextColor)
-        .tint(app.theme.accentColor)
         .navigationSubtitle(model.isDirty ? "Unsaved changes" : "")
     }
 
     private func titleBar(note: Note) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Spacing.medium) {
             TextField("Untitled", text: $model.titleDraft, onEditingChanged: { _ in model.titleChanged() })
                 .textFieldStyle(.plain)
                 .font(.title2).bold()
@@ -87,18 +87,18 @@ struct NoteEditorView: View {
             Spacer()
             if model.isDirty {
                 Circle()
-                    .fill(Color.orange)
+                    .fill(StatusTone.caution.accent)
                     .frame(width: 6, height: 6)
                     .help("Unsaved changes")
                     .accessibilityLabel("Unsaved changes")
             }
         }
-        .padding(16)
-        .background(app.theme.chromeBackground)
+        .padding(Spacing.large)
+        .composerSurface(.chrome)
     }
 
     private var linkSheet: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.medium) {
             Text("Insert link").font(.headline)
             TextField("https://…", text: $linkURLDraft)
                 .textFieldStyle(.roundedBorder)
@@ -116,7 +116,7 @@ struct NoteEditorView: View {
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
+        .padding(Spacing.xlarge)
     }
 }
 

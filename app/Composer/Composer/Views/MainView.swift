@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject private var app: AppState
+    @Environment(\.colorScheme) private var scheme
     @AppStorage("draftPanelWidth") private var draftPanelWidth: Double = 420
 
     private var panelVisible: Bool {
@@ -9,35 +10,57 @@ struct MainView: View {
     }
 
     var body: some View {
+        // A VStack sibling, not safeAreaInset. The inset reads as the tidier
+        // option, but HSplitView's children don't honor it: the list's section
+        // header and the detail pane's action row both slide under the bar and
+        // get clipped. Stacking costs the banner nothing and keeps the split
+        // view's own layout intact.
         VStack(spacing: 0) {
             if app.backendStale {
                 staleBanner
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
             mainSplit
         }
+        .animation(.easeInOut(duration: 0.2), value: app.backendStale)
         .onChange(of: app.selectedTab) { _, _ in
             if app.draftsModel.isDirty { app.draftsModel.save() }
         }
     }
 
     private var staleBanner: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.small) {
             Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(StatusTone.caution.accent)
                 .accessibilityHidden(true)
             Text("Backend is running older code than this app. Restart it to pick up the latest.")
                 .font(.callout)
-            Spacer()
+            Spacer(minLength: 8)
             Button("Restart Backend") {
                 app.supervisor.restart()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color.yellow.opacity(0.25))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Backend out of date. Restart it to pick up the latest.")
+        .padding(.horizontal, Spacing.medium)
+        .padding(.vertical, Spacing.small)
+        .frame(maxWidth: .infinity)
+        // A flat yellow wash went murky olive under the dark palettes and left
+        // the label at whatever contrast happened to fall out. The bar
+        // material carries the appearance; the tone is a wash on top of it.
+        .background {
+            StatusTone.caution.fill(scheme).background(.bar)
+        }
+        .overlay(alignment: .bottom) {
+            // macOS 26 draws its own scroll edge effect where content meets
+            // chrome; a manual hairline competes with it. Older systems still
+            // want the separator.
+            if #unavailable(macOS 26) { Divider() }
+        }
+        // Deliberately not `children: .combine` — that folds the button into
+        // one element and VoiceOver loses the only way to act on the warning.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Backend out of date")
     }
 
     private var mainSplit: some View {
@@ -88,6 +111,7 @@ struct MainView: View {
 
             if panelVisible {
                 DraftSidePanelView(model: app.draftsModel)
+                    .frame(maxHeight: .infinity)
                     .frame(minWidth: 320, idealWidth: draftPanelWidth, maxWidth: 800)
                     .background(
                         GeometryReader { geo in
@@ -98,6 +122,11 @@ struct MainView: View {
                     )
             }
         }
+        // HSplitView sizes to its content. Tabs whose body is greedy (the
+        // lists) filled the window anyway; Ask, whose transcript collapses to
+        // an empty state, left the split centered with dead space above and
+        // below — and pushed the banner down off the top edge with it.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

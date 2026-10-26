@@ -2,32 +2,42 @@ import SwiftUI
 
 struct AskTranscriptView: View {
     @ObservedObject var model: AskModel
+    @Environment(\.composerTypeface) private var typeface
 
     var body: some View {
+        // The empty state replaces the transcript rather than sitting inside
+        // it: ContentUnavailableView sizes itself to the space it's given, and
+        // inside a ScrollView it gets an unbounded proposal and ends up
+        // clipped against the input bar.
+        if model.turns.isEmpty {
+            EmptyStateView()
+        } else {
+            transcript
+        }
+    }
+
+    private var transcript: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    if model.turns.isEmpty {
-                        EmptyStateView()
-                    } else {
-                        ForEach(model.turns) { turn in
-                            TurnView(
-                                turn: turn,
-                                isFocused: model.focusedTurnId == turn.id
-                                    || (model.focusedTurnId == nil && turn.id == model.turns.last?.id),
-                                onCitationTap: { index in
-                                    model.focusTurn(turn.id)
-                                    if let hit = turn.citations.first(where: { $0.index == index }) {
-                                        model.selectedCitationId = hit.id
-                                    }
+                VStack(alignment: .leading, spacing: Spacing.xlarge) {
+                    ForEach(model.turns) { turn in
+                        TurnView(
+                            turn: turn,
+                            isFocused: model.focusedTurnId == turn.id
+                                || (model.focusedTurnId == nil && turn.id == model.turns.last?.id),
+                            onCitationTap: { index in
+                                model.focusTurn(turn.id)
+                                if let hit = turn.citations.first(where: { $0.index == index }) {
+                                    model.selectedCitationId = hit.id
                                 }
-                            )
-                            .id(turn.id)
-                        }
+                            }
+                        )
+                        .id(turn.id)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+                .padding(Spacing.large)
+                .font(typeface.readingBody)
             }
             .onChange(of: model.turns.last?.answer) { _, _ in
                 withAnimation(.linear(duration: 0.1)) {
@@ -49,20 +59,14 @@ struct AskTranscriptView: View {
 
 private struct EmptyStateView: View {
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "sparkle.magnifyingglass")
-                .font(.system(size: 44))
-                .foregroundStyle(.secondary)
-            Text("Ask your archive")
-                .font(.title3.weight(.medium))
-            Text("Questions are answered from your articles, notes, and drafts. Every claim is grounded in a cited source.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 80)
+        ContentUnavailableView(
+            "Ask your archive",
+            systemImage: "sparkle.magnifyingglass",
+            description: Text(
+                "Questions are answered from your articles, notes, and drafts. "
+                    + "Every claim is grounded in a cited source."
+            )
+        )
     }
 }
 
@@ -72,7 +76,7 @@ private struct TurnView: View {
     let onCitationTap: (Int) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Spacing.medium) {
             QuestionBubble(text: turn.question)
             AnswerBubble(
                 text: turn.answer,
@@ -86,15 +90,16 @@ private struct TurnView: View {
 }
 
 private struct QuestionBubble: View {
+    @Environment(\.composerTheme) private var theme
     let text: String
 
     var body: some View {
         HStack {
             Spacer(minLength: 40)
             Text(text)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Color.accentColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 14))
+                .padding(.horizontal, Spacing.large)
+                .padding(.vertical, Spacing.medium)
+                .background(theme.accentColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 14))
                 .textSelection(.enabled)
         }
     }
@@ -107,13 +112,13 @@ private struct AnswerBubble: View {
     let onCitationTap: (Int) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.small) {
             if text.isEmpty, case .streaming = state {
-                HStack(spacing: 8) {
+                HStack(spacing: Spacing.small) {
                     ProgressView().controlSize(.small)
                     Text("Searching…").foregroundStyle(.secondary).font(.callout)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, Spacing.xsmall)
             } else {
                 AnswerText(
                     text: text,
@@ -126,7 +131,7 @@ private struct AnswerBubble: View {
                 Label(message, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
                     .foregroundStyle(.red)
-                    .padding(.top, 4)
+                    .padding(.top, Spacing.xsmall)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

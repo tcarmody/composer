@@ -19,6 +19,24 @@ make web                    # terminal 2: vite on :3001
 
 Open <http://localhost:3001>. The header shows a green dot when the backend is healthy.
 
+## Mac app
+
+Builds from the command line with SwiftPM — no Xcode app, no xcodegen:
+
+```bash
+make app                                 # release, host arch, ad-hoc signed
+make app-run                             # ...and launch it
+make app-test                            # unit tests (Swift Testing)
+./scripts/build-mac-app.sh --universal   # arm64 + x86_64
+./scripts/build-mac-app.sh --sign "Apple Development: you@example.com (TEAMID)"
+```
+
+Output lands in `app/Composer/builds/Composer.app`. The script bakes the repo
+path it built from into the bundle, so the app finds this clone's `venv/` and
+`backend/` on whatever machine built it. `app/Composer/project.yml` (xcodegen)
+still works for opening the same sources in Xcode; both read bundle metadata
+from that file.
+
 ## API
 
 Public (consumed by DataPoints, guarded by `X-Ingest-Key`):

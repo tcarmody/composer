@@ -30,6 +30,10 @@ final class LibraryModel: ObservableObject {
     @Published var detailState: DetailState = .empty
     @Published var runningAction: ItemAction?
     @Published var actionError: String?
+    /// A load running over content that's already displayed. Views overlay a
+    /// delayed indicator rather than blanking the pane.
+    @Published private(set) var isListReloading = false
+    @Published private(set) var isDetailReloading = false
 
     var isRefreshing: Bool { runningAction == .refresh }
     var isFetchingContent: Bool { runningAction == .fetchContent }
@@ -43,20 +47,35 @@ final class LibraryModel: ObservableObject {
         self.api = api
     }
 
+    /// Keep what's already loaded on screen and flag the reload, rather than
+    /// dropping to `.loading` and blanking the pane mid-browse.
+    private func beginListLoad() {
+        if case .loaded = listState { isListReloading = true } else { listState = .loading }
+    }
+
+    private func beginDetailLoad() {
+        if case .loaded = detailState { isDetailReloading = true } else { detailState = .loading }
+    }
+
     func refreshList() {
         searchTask?.cancel()
         let q = query
         let archived = showArchived
-        listState = .loading
+        beginListLoad()
         searchTask = Task { [weak self] in
             guard let self else { return }
             do {
                 let response = try await self.api.listItems(query: q, archived: archived)
+                // A cancelled task returns without clearing the flag: the load
+                // that replaced it has already set it, and clearing here would
+                // hide an indicator that's still earning its keep.
                 if Task.isCancelled { return }
                 self.listState = .loaded(response)
+                self.isListReloading = false
             } catch {
                 if Task.isCancelled { return }
                 self.listState = .error(error.localizedDescription)
+                self.isListReloading = false
             }
         }
     }
@@ -69,14 +88,16 @@ final class LibraryModel: ObservableObject {
             try? await Task.sleep(for: .milliseconds(250))
             if Task.isCancelled { return }
             guard let self else { return }
-            self.listState = .loading
+            self.beginListLoad()
             do {
                 let response = try await self.api.listItems(query: q, archived: archived)
                 if Task.isCancelled { return }
                 self.listState = .loaded(response)
+                self.isListReloading = false
             } catch {
                 if Task.isCancelled { return }
                 self.listState = .error(error.localizedDescription)
+                self.isListReloading = false
             }
         }
     }
@@ -86,18 +107,21 @@ final class LibraryModel: ObservableObject {
         detailTask?.cancel()
         guard let id else {
             detailState = .empty
+            isDetailReloading = false
             return
         }
-        detailState = .loading
+        beginDetailLoad()
         detailTask = Task { [weak self] in
             guard let self else { return }
             do {
                 let item = try await self.api.getItem(id: id)
                 if Task.isCancelled { return }
                 self.detailState = .loaded(item)
+                self.isDetailReloading = false
             } catch {
                 if Task.isCancelled { return }
                 self.detailState = .error(error.localizedDescription)
+                self.isDetailReloading = false
             }
         }
     }

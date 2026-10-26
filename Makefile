@@ -1,4 +1,4 @@
-.PHONY: setup backend web dev test clean
+.PHONY: setup backend web dev test clean app app-run app-test
 
 # One-time setup: Python venv + npm install
 setup:
@@ -26,6 +26,18 @@ dev:
 # Run backend tests
 test:
 	./venv/bin/python -m pytest backend/tests/ -v
+
+# Build + sign the Mac app (no Xcode needed). CODESIGN_IDENTITY overrides ad-hoc.
+app:
+	./scripts/build-mac-app.sh
+
+# Same, then launch it
+app-run:
+	./scripts/build-mac-app.sh --run
+
+# Mac app unit tests (also runnable in Xcode via the Composer scheme)
+app-test:
+	swift test --package-path app/Composer
 
 # Typecheck + build frontend
 check:

@@ -152,11 +152,7 @@ async def summarize_article(
         ],
         "messages": [{"role": "user", "content": article_block}],
     }
-    headers = {
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-    }
+    headers = secret_store.anthropic_headers(api_key)
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:

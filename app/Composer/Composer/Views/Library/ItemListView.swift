@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ItemListView: View {
     @ObservedObject var model: LibraryModel
-    @EnvironmentObject private var app: AppState
+    @Environment(\.composerDensity) private var density
     @State private var pendingDelete: ItemSummary?
     @State private var showDeleteConfirm = false
 
@@ -25,7 +25,7 @@ struct ItemListView: View {
     private var content: some View {
         switch model.listState {
         case .idle, .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            DelayedProgressView()
         case .error(let msg):
             Text("Failed to load: \(msg)")
                 .font(.caption)
@@ -46,7 +46,7 @@ struct ItemListView: View {
                 )) {
                     Section {
                         ForEach(response.items) { item in
-                            ItemRowView(item: item, density: app.listDensity)
+                            ItemRowView(item: item, density: density)
                                 .tag(item.id)
                                 .contextMenu { rowMenu(for: item) }
                         }
@@ -57,6 +57,8 @@ struct ItemListView: View {
                     }
                 }
                 .listStyle(.inset)
+                .composerSurface(.list)
+                .reloadIndicator(model.isListReloading)
             }
         }
     }
@@ -133,17 +135,18 @@ struct ItemListView: View {
 }
 
 private struct ItemRowView: View {
+    @Environment(\.composerTypeface) private var typeface
     let item: ItemSummary
     let density: ListDensity
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.xsmall) {
             HStack(alignment: .firstTextBaseline) {
                 Text(item.title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(typeface.rowTitle)
                     .lineLimit(2)
                 Spacer(minLength: 8)
-                Text(formatDate(item.publishedAt ?? item.promotedAt))
+                Text(BackendDate.shortDate(item.publishedAt ?? item.promotedAt))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -170,34 +173,4 @@ private struct ItemRowView: View {
         if item.isArchived { parts.append("archived") }
         return parts.joined(separator: ", ")
     }
-}
-
-func formatDate(_ iso: String?) -> String {
-    guard let iso, !iso.isEmpty else { return "" }
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let d = formatter.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) {
-        return d.formatted(.dateTime.month(.abbreviated).day())
-    }
-    let fallback = DateFormatter()
-    fallback.dateFormat = "yyyy-MM-dd HH:mm:ss"
-    if let d = fallback.date(from: iso) {
-        return d.formatted(.dateTime.month(.abbreviated).day())
-    }
-    return iso
-}
-
-func formatDateTime(_ iso: String?) -> String {
-    guard let iso, !iso.isEmpty else { return "" }
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let d = formatter.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) {
-        return d.formatted(date: .abbreviated, time: .shortened)
-    }
-    let fallback = DateFormatter()
-    fallback.dateFormat = "yyyy-MM-dd HH:mm:ss"
-    if let d = fallback.date(from: iso) {
-        return d.formatted(date: .abbreviated, time: .shortened)
-    }
-    return iso
 }

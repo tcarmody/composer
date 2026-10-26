@@ -69,6 +69,18 @@ def get(name: str) -> str:
     return os.getenv(_KNOWN_KEYS[name], "")
 
 
+def anthropic_headers(api_key: str) -> dict[str, str]:
+    """Request headers for the Anthropic Messages API."""
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+    if config.ANTHROPIC_WORKSPACE_ID:
+        headers["anthropic-workspace-id"] = config.ANTHROPIC_WORKSPACE_ID
+    return headers
+
+
 def set_value(name: str, value: str) -> None:
     if name not in _KNOWN_KEYS:
         raise ValueError(f"Unknown secret name: {name}")

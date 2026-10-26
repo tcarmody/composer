@@ -2,7 +2,8 @@ import SwiftUI
 
 struct CollectionsListView: View {
     @ObservedObject var model: CollectionsModel
-    @EnvironmentObject private var app: AppState
+    @Environment(\.composerTypeface) private var typeface
+    @Environment(\.composerDensity) private var density
     @State private var newName = ""
 
     var body: some View {
@@ -22,7 +23,7 @@ struct CollectionsListView: View {
     }
 
     private var newCollectionSheet: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.medium) {
             Text("New collection").font(.headline)
             TextField("Collection name", text: $newName)
                 .textFieldStyle(.roundedBorder)
@@ -40,14 +41,14 @@ struct CollectionsListView: View {
                     .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .padding(20)
+        .padding(Spacing.xlarge)
     }
 
     @ViewBuilder
     private var list: some View {
         switch model.listState {
         case .idle, .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            DelayedProgressView()
         case .error(let msg):
             Text("Failed to load: \(msg)")
                 .font(.caption)
@@ -68,19 +69,21 @@ struct CollectionsListView: View {
                     set: { model.select($0) }
                 )) {
                     ForEach(filtered) { c in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(c.name).font(.system(size: 13, weight: .medium))
+                        VStack(alignment: .leading, spacing: Spacing.tight) {
+                            Text(c.name).font(typeface.rowTitle)
                             Text("\(c.memberCount) item\(c.memberCount == 1 ? "" : "s")")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        .padding(.vertical, app.listDensity.verticalPadding)
+                        .padding(.vertical, density.verticalPadding)
                         .tag(c.id)
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel("\(c.name), \(c.memberCount) item\(c.memberCount == 1 ? "" : "s")")
                     }
                 }
                 .listStyle(.inset)
+                .composerSurface(.list)
+                .reloadIndicator(model.isListReloading)
             }
         }
     }
