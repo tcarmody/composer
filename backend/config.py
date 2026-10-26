@@ -38,6 +38,9 @@ class Config:
     INGEST_API_KEY: str = os.getenv("COMPOSER_INGEST_KEY", "")
 
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    # Sent as anthropic-workspace-id on every Anthropic request. Needed for
+    # keys that aren't scoped to a single workspace; leave unset otherwise.
+    ANTHROPIC_WORKSPACE_ID: str = os.getenv("ANTHROPIC_WORKSPACE_ID", "")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     VOYAGE_API_KEY: str = os.getenv("VOYAGE_API_KEY", "")
 

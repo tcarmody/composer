@@ -330,11 +330,7 @@ def _as_str(value: object) -> str:
 
 
 async def _post_messages(payload: dict, api_key: str, timeout: float) -> str:
-    headers = {
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-    }
+    headers = secret_store.anthropic_headers(api_key)
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
             resp = await client.post(ANTHROPIC_URL, headers=headers, json=payload)

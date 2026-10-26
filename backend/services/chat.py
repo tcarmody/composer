@@ -164,11 +164,7 @@ async def stream_chat(
         "messages": messages,
         "stream": True,
     }
-    headers = {
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-    }
+    headers = secret_store.anthropic_headers(api_key)
 
     try:
         async with httpx.AsyncClient(timeout=STREAM_TIMEOUT) as client:
