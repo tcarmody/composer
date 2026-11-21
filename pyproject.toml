@@ -1,0 +1,55 @@
+[project]
+name = "composer"
+version = "0.1.0"
+description = "Composer: the research and writing workbench companion to DataPoints (FastAPI backend)."
+requires-python = ">=3.14"
+dependencies = [
+    # Claude provider layer and the DataPoints ingest contract
+    "dpcommon",
+
+    # Core
+    "fastapi>=0.127.0",
+    "uvicorn>=0.40.0",
+    "python-dotenv>=1.2.1",
+    "pydantic>=2.12.0",
+
+    # HTTP (DataPoints, Voyage embeddings, article fetching)
+    "httpx>=0.28.0",
+
+    # Article fetching + extraction
+    "trafilatura>=1.12",
+    "beautifulsoup4>=4.12",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pytest-asyncio>=1.3",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+dpcommon = { url = "https://github.com/tcarmody/datapoints-common/archive/refs/tags/v0.1.0.tar.gz" }
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.dpcommon.macapp]
+package = "app/Composer"
+product = "Composer"
+# Info.plist uses Xcode build-setting placeholders, filled from project.yml so
+# the Xcode (xcodegen) path and this one can't drift
+info_plist = "app/Composer/Composer/Info.plist"
+plist_vars_file = "app/Composer/project.yml"
+entitlements = "app/Composer/Composer/Composer.entitlements"
+icon = { catalog = "app/Composer/Composer/Assets.xcassets", method = "actool" }
+output = "app/Composer/builds"
+run = "open"
+
+[tool.dpcommon.macapp.plist_set]
+# Baked in so BackendSupervisor can find this clone's .venv/ and backend/
+ComposerProjectRoot = "{repo_root}"

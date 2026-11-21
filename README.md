@@ -11,7 +11,7 @@ Phase 1: ingest + library. Items can be pushed into `/v1/ingest/items` (idempote
 ## Quick start
 
 ```bash
-make setup                  # one-time: venv + npm install
+make setup                  # one-time: uv sync (Python 3.14 into .venv) + npm install
 make backend                # terminal 1: uvicorn on :5006
 make web                    # terminal 2: vite on :3001
 ./scripts/seed_fixtures.sh  # optional: seed 5 sample items for testing
@@ -21,19 +21,25 @@ Open <http://localhost:3001>. The header shows a green dot when the backend is h
 
 ## Mac app
 
-Builds from the command line with SwiftPM — no Xcode app, no xcodegen:
+Builds from the command line with SwiftPM — no Xcode app, no xcodegen — using
+`dpcommon-macapp`, the build tool from the shared
+[dpcommon](https://github.com/tcarmody/datapoints-common) package (DataPoints'
+Mac app uses it too). Its settings for this app are `[tool.dpcommon.macapp]`
+in `pyproject.toml`.
 
 ```bash
-make app                                 # release, host arch, ad-hoc signed
-make app-run                             # ...and launch it
-make app-test                            # unit tests (Swift Testing)
-./scripts/build-mac-app.sh --universal   # arm64 + x86_64
-./scripts/build-mac-app.sh --sign "Apple Development: you@example.com (TEAMID)"
+make app                                          # release, host arch, signed
+make app-run                                      # ...and launch it
+make app-test                                     # unit tests (Swift Testing)
+uv run dpcommon-macapp app --universal            # arm64 + x86_64
+uv run dpcommon-macapp app --sign "Apple Development"   # or set CODESIGN_IDENTITY
 ```
 
-Output lands in `app/Composer/builds/Composer.app`. The script bakes the repo
-path it built from into the bundle, so the app finds this clone's `venv/` and
-`backend/` on whatever machine built it. `app/Composer/project.yml` (xcodegen)
+Without `--sign`, it signs with a Developer ID identity if you have one, then
+Apple Development, then ad-hoc. Output lands in
+`app/Composer/builds/Composer.app`. The build bakes the repo path it built
+from into the bundle, so the app finds this clone's `.venv/` and `backend/` on
+whatever machine built it. `app/Composer/project.yml` (xcodegen)
 still works for opening the same sources in Xcode; both read bundle metadata
 from that file.
 

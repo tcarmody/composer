@@ -7,16 +7,12 @@ picks an action, optionally narrows to a selection, and we rewrite.
 
 from typing import Literal
 
-import httpx
-
-from ..config import config
-from . import secret_store
+from . import llm
 
 AssistAction = Literal["rewrite", "expand", "summarize", "tighten", "audio"]
 
-ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-DEFAULT_MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 2048
+TIMEOUT = 60.0
 
 _ACTION_PROMPTS: dict[str, str] = {
     "rewrite": (
@@ -79,11 +75,9 @@ async def run_assist(
     selection: str | None,
     instructions: str | None,
 ) -> str:
-    api_key = secret_store.get("anthropic")
-    if not api_key:
-        raise AssistError(
-            "Anthropic API key is not configured. Set it in Settings → LLM Keys."
-        )
+    provider = llm.get_provider()
+    if provider is None:
+        raise AssistError(llm.KEY_MISSING_MESSAGE)
 
     task = _ACTION_PROMPTS[action]
     target = (selection or draft_body).strip()
@@ -108,30 +102,18 @@ async def run_assist(
     else:
         user_parts.append(f"Passage:\n\n{target}")
 
-    payload = {
-        "model": config.LLM_MODEL or DEFAULT_MODEL,
-        "max_tokens": MAX_TOKENS,
-        "system": system,
-        "messages": [{"role": "user", "content": "\n\n".join(user_parts)}],
-    }
-
-    headers = secret_store.anthropic_headers(api_key)
-
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        try:
-            resp = await client.post(ANTHROPIC_URL, headers=headers, json=payload)
-        except httpx.HTTPError as e:
-            raise AssistError(f"Network error: {e}") from e
-
-    if resp.status_code != 200:
-        raise AssistError(
-            f"Anthropic API error {resp.status_code}: {resp.text[:400]}"
+    try:
+        result = await provider.complete_async(
+            user_prompt="\n\n".join(user_parts),
+            system_prompt=system,
+            model=llm.chat_model(),
+            max_tokens=MAX_TOKENS,
+            timeout=TIMEOUT,
         )
+    except llm.LLM_ERRORS as e:
+        raise AssistError(llm.describe_error(e)) from e
 
-    data = resp.json()
-    blocks = data.get("content") or []
-    texts = [b.get("text", "") for b in blocks if b.get("type") == "text"]
-    suggestion = "\n".join(t for t in texts if t).strip()
+    suggestion = result.text.strip()
     if not suggestion:
         raise AssistError("Anthropic returned an empty response.")
     return suggestion

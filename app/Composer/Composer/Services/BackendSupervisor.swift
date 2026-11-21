@@ -5,7 +5,7 @@ import Foundation
 ///
 /// On start, checks whether something is already bound to :5006. If yes,
 /// we back off (externallyManaged). Otherwise we spawn
-/// `venv/bin/python -m uvicorn backend.server:app --port 5006` from the
+/// `.venv/bin/python -m uvicorn backend.server:app --port 5006` from the
 /// configured project root, pipe stdout+stderr into a ring buffer, and
 /// poll /v1/health until it responds or we give up.
 ///
@@ -43,7 +43,7 @@ final class BackendSupervisor: ObservableObject, @unchecked Sendable {
     init(projectRoot: URL? = nil) {
         let override = UserDefaults.standard.string(forKey: "COMPOSER_PROJECT_ROOT")
         // scripts/build-mac-app.sh bakes the repo it built from into the
-        // bundle, so a clone on any machine finds its own venv/ and backend/.
+        // bundle, so a clone on any machine finds its own .venv/ and backend/.
         let bundled = Bundle.main.object(forInfoDictionaryKey: "ComposerProjectRoot") as? String
         let path = override ?? projectRoot?.path ?? bundled ?? "/Users/tim/Workspace/composer"
         self.projectRoot = URL(fileURLWithPath: path, isDirectory: true)
@@ -75,7 +75,7 @@ final class BackendSupervisor: ObservableObject, @unchecked Sendable {
             return
         }
 
-        let python = projectRoot.appendingPathComponent("venv/bin/python")
+        let python = projectRoot.appendingPathComponent(".venv/bin/python")
         guard FileManager.default.isExecutableFile(atPath: python.path) else {
             await setStatus(.failed("Python not found at \(python.path). Run `make setup` first."))
             return
@@ -221,7 +221,7 @@ final class BackendSupervisor: ObservableObject, @unchecked Sendable {
     private func buildEnvironment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
         // Ensure uvicorn binary in venv is found without explicit path
-        let binDir = projectRoot.appendingPathComponent("venv/bin").path
+        let binDir = projectRoot.appendingPathComponent(".venv/bin").path
         env["PATH"] = binDir + ":" + (env["PATH"] ?? "/usr/bin:/bin")
         env["PYTHONUNBUFFERED"] = "1"
         return env

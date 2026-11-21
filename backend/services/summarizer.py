@@ -2,8 +2,8 @@
 Article summarizer — single-pass Anthropic call returning a structured summary.
 
 Trimmed port of the DataPoints summarizer: same prompts and output shape, but
-no multi-provider, no critic/review pass, no cache. One JSON-shaped Anthropic
-request via httpx, mirroring `services/assist.py`.
+no multi-provider, no critic/review pass, no cache. One JSON-shaped request
+through the shared provider, mirroring `services/assist.py`.
 """
 
 from __future__ import annotations
@@ -11,14 +11,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-import httpx
+from . import llm
 
-from . import secret_store
-
-ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-HAIKU_MODEL = "claude-haiku-4-5"
-SONNET_MODEL = "claude-sonnet-4-6"
+HAIKU_MODEL = llm.FAST_MODEL
+SONNET_MODEL = llm.STANDARD_MODEL
 MAX_TOKENS = 1024
+TIMEOUT = 60.0
 MAX_CONTENT_LENGTH = 15000
 
 _TECHNICAL_TERMS = (
@@ -121,11 +119,9 @@ async def summarize_article(
     url: str = "",
 ) -> ArticleSummary:
     """Run a single Anthropic call to summarize `content`."""
-    api_key = secret_store.get("anthropic")
-    if not api_key:
-        raise SummarizeError(
-            "Anthropic API key is not configured. Set it in Settings → LLM Keys."
-        )
+    provider = llm.get_provider()
+    if provider is None:
+        raise SummarizeError(llm.KEY_MISSING_MESSAGE)
     cleaned = (content or "").strip()
     if len(cleaned) < 200:
         raise SummarizeError(
@@ -135,39 +131,22 @@ async def summarize_article(
     model = _select_model(cleaned)
     article_block = _build_article_block(cleaned, title, url)
 
-    payload = {
-        "model": model,
-        "max_tokens": MAX_TOKENS,
-        "system": [
-            {
-                "type": "text",
-                "text": SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            },
-            {
-                "type": "text",
-                "text": INSTRUCTION_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            },
-        ],
-        "messages": [{"role": "user", "content": article_block}],
-    }
-    headers = secret_store.anthropic_headers(api_key)
-
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        try:
-            resp = await client.post(ANTHROPIC_URL, headers=headers, json=payload)
-        except httpx.HTTPError as e:
-            raise SummarizeError(f"Network error: {e}") from e
-
-    if resp.status_code != 200:
-        raise SummarizeError(
-            f"Anthropic API error {resp.status_code}: {resp.text[:400]}"
+    system = [
+        {"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": INSTRUCTION_PROMPT, "cache_control": {"type": "ephemeral"}},
+    ]
+    try:
+        result = await provider.complete_async(
+            user_prompt=article_block,
+            system=system,
+            model=model,
+            max_tokens=MAX_TOKENS,
+            timeout=TIMEOUT,
         )
+    except llm.LLM_ERRORS as e:
+        raise SummarizeError(llm.describe_error(e)) from e
 
-    data = resp.json()
-    blocks = data.get("content") or []
-    text = "\n".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+    text = result.text
     if not text.strip():
         raise SummarizeError("Anthropic returned an empty response.")
 

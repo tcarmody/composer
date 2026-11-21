@@ -3,10 +3,10 @@ Streaming, per-claim fact-check.
 
 Two-stage pipeline:
 
-  1. **Extract** — one fast Haiku call. Pulls verbatim verifiable claims from
-     the passage. No tools. Returns IDs + offsets.
-  2. **Verify** — one Sonnet+web_search call per claim, in parallel (capped by
-     a semaphore). Each call returns a verdict, explanation, suggested
+  1. **Extract** — one fast Haiku 5.5 call. Pulls verbatim verifiable claims
+     from the passage. No tools. Returns IDs + offsets.
+  2. **Verify** — one Sonnet 5.5 + web_search call per claim, in parallel
+     (capped by a semaphore). Each call returns a verdict, explanation, suggested
      correction, and source citations.
 
 Emits as a stream of typed events; a thin SSE adapter lives in the route.
@@ -25,14 +25,18 @@ import json
 from dataclasses import dataclass, field
 from typing import AsyncIterator, Literal
 
-import httpx
+from dpcommon.llm import AnthropicProvider
 
 from ..config import config
-from . import secret_store
+from . import llm
 
-ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-EXTRACT_MODEL = "claude-haiku-4-5"
-VERIFY_MODEL = "claude-sonnet-4-6"
+EXTRACT_MODEL = llm.FAST_MODEL
+VERIFY_MODEL = llm.STANDARD_MODEL
+# The current web search tool: dynamic filtering of results, for Sonnet 5.5
+WEB_SEARCH_TOOL = "web_search_20260209"
+# A server tool that hits its iteration limit mid-turn stops with
+# stop_reason "pause_turn"; the turn is resumed by sending it back.
+MAX_PAUSE_CONTINUATIONS = 2
 EXTRACT_MAX_TOKENS = 1024
 VERIFY_MAX_TOKENS = 2048
 VERIFY_MAX_SEARCHES = 4
@@ -146,8 +150,8 @@ async def factcheck_events(
     selection: str | None,
 ) -> AsyncIterator[FactCheckEvent]:
     """Async generator of fact-check events. Suitable for SSE adaptation."""
-    api_key = secret_store.get("anthropic")
-    if not api_key:
+    provider = llm.get_provider()
+    if provider is None:
         yield ErrorEvent(
             message=(
                 "Anthropic API key is not configured. "
@@ -165,7 +169,7 @@ async def factcheck_events(
 
     # Stage 1: extraction
     try:
-        raw_claims = await _extract_claims(passage, body, api_key)
+        raw_claims = await _extract_claims(passage, body, provider)
     except FactCheckError as e:
         yield ErrorEvent(message=str(e))
         return
@@ -204,7 +208,7 @@ async def factcheck_events(
         try:
             async with sem:
                 event: FactCheckEvent = await _verify_claim(
-                    claim, passage, body, api_key
+                    claim, passage, body, provider
                 )
         except BaseException as e:  # noqa: BLE001
             event = ErrorEvent(message=str(e) or repr(e), claim_id=claim.id)
@@ -230,7 +234,7 @@ async def factcheck_events(
 async def _extract_claims(
     passage: str,
     full_body: str,
-    api_key: str,
+    provider: AnthropicProvider,
 ) -> list[dict]:
     user_parts: list[str] = []
     if passage != full_body and full_body:
@@ -239,13 +243,14 @@ async def _extract_claims(
     else:
         user_parts.append("Passage:\n\n" + passage)
 
-    payload = {
-        "model": config.LLM_MODEL or EXTRACT_MODEL,
-        "max_tokens": EXTRACT_MAX_TOKENS,
-        "system": EXTRACT_SYSTEM,
-        "messages": [{"role": "user", "content": "\n\n".join(user_parts)}],
-    }
-    text = await _post_messages(payload, api_key, EXTRACT_TIMEOUT)
+    text = await _ask(
+        provider,
+        model=config.LLM_MODEL or EXTRACT_MODEL,
+        max_tokens=EXTRACT_MAX_TOKENS,
+        system=EXTRACT_SYSTEM,
+        messages=[{"role": "user", "content": "\n\n".join(user_parts)}],
+        timeout=EXTRACT_TIMEOUT,
+    )
     parsed = _parse_json(text)
     claims = parsed.get("claims") if isinstance(parsed, dict) else None
     if not isinstance(claims, list):
@@ -260,7 +265,7 @@ async def _verify_claim(
     claim: FactCheckClaim,
     passage: str,
     full_body: str,
-    api_key: str,
+    provider: AnthropicProvider,
 ) -> VerdictEvent:
     user_parts = [f"Claim to verify:\n\n{claim.claim}"]
     if passage and passage != claim.claim:
@@ -268,20 +273,21 @@ async def _verify_claim(
     if full_body and full_body != passage:
         user_parts.append(f"Full draft (additional context):\n\n{full_body}")
 
-    payload = {
-        "model": VERIFY_MODEL,
-        "max_tokens": VERIFY_MAX_TOKENS,
-        "system": VERIFY_SYSTEM,
-        "tools": [
+    text = await _ask(
+        provider,
+        model=VERIFY_MODEL,
+        max_tokens=VERIFY_MAX_TOKENS,
+        system=VERIFY_SYSTEM,
+        tools=[
             {
-                "type": "web_search_20250305",
+                "type": WEB_SEARCH_TOOL,
                 "name": "web_search",
                 "max_uses": VERIFY_MAX_SEARCHES,
             }
         ],
-        "messages": [{"role": "user", "content": "\n\n".join(user_parts)}],
-    }
-    text = await _post_messages(payload, api_key, VERIFY_TIMEOUT)
+        messages=[{"role": "user", "content": "\n\n".join(user_parts)}],
+        timeout=VERIFY_TIMEOUT,
+    )
     raw = _parse_json(text)
     if not isinstance(raw, dict):
         raise FactCheckError("Verification response was not a JSON object.")
@@ -329,29 +335,33 @@ def _as_str(value: object) -> str:
 # ─── shared helpers ─────────────────────────────────────
 
 
-async def _post_messages(payload: dict, api_key: str, timeout: float) -> str:
-    headers = secret_store.anthropic_headers(api_key)
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        try:
-            resp = await client.post(ANTHROPIC_URL, headers=headers, json=payload)
-        except httpx.HTTPError as e:
-            raise FactCheckError(f"Network error: {e}") from e
-    if resp.status_code != 200:
-        raise FactCheckError(
-            f"Anthropic API error {resp.status_code}: {resp.text[:400]}"
-        )
-    data = resp.json()
-    blocks = data.get("content") or []
-    # With web_search, Claude emits narration text blocks between tool turns.
-    # The answer lives in the LAST text block; earlier ones are commentary.
-    text_blocks = [
-        (b.get("text") or "").strip()
-        for b in blocks
-        if b.get("type") == "text" and (b.get("text") or "").strip()
-    ]
-    if not text_blocks:
+async def _ask(
+    provider: AnthropicProvider,
+    *,
+    messages: list[dict],
+    timeout: float,
+    **request,
+) -> str:
+    """
+    One Messages call, resumed if a server tool pauses the turn, returning the
+    answer text. With web_search, Claude narrates between tool turns, so the
+    answer is the LAST text block; earlier ones are commentary.
+    """
+    conversation = list(messages)
+    try:
+        for _ in range(MAX_PAUSE_CONTINUATIONS + 1):
+            response = await provider.create_message_async(
+                messages=conversation, timeout=timeout, **request
+            )
+            if response.stop_reason != "pause_turn":
+                break
+            conversation = [*conversation, {"role": "assistant", "content": response.content}]
+    except llm.LLM_ERRORS as e:
+        raise FactCheckError(llm.describe_error(e)) from e
+    text = AnthropicProvider.extract_text(response, last_block_only=True).strip()
+    if not text:
         raise FactCheckError("Anthropic returned no text.")
-    return text_blocks[-1]
+    return text
 
 
 def _parse_json(text: str) -> dict | list:

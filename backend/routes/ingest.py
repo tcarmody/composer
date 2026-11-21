@@ -1,21 +1,19 @@
 """
 Public ingest API — consumed by DataPoints to promote articles into Composer.
 
-Guarded by COMPOSER_INGEST_KEY (optional in dev).
+The request and response models are the shared contract in `dpcommon.ingest`,
+which DataPoints builds its payloads from. Guarded by COMPOSER_INGEST_KEY
+(optional in dev).
 """
 
 import asyncio
 
+from dpcommon.ingest import IngestBatchResponse, IngestItem, IngestItemResponse
 from fastapi import APIRouter, Depends
 
 from ..auth import verify_ingest_key
 from ..config import get_items_repo
 from ..repositories import ItemRepository
-from ..schemas import (
-    IngestBatchResponse,
-    IngestItemRequest,
-    IngestItemResponse,
-)
 from ..services.indexer import index_item
 
 router = APIRouter(
@@ -31,7 +29,7 @@ def _item_url(item_id: str) -> str:
 
 @router.post("/items", response_model=IngestItemResponse)
 async def ingest_item(
-    payload: IngestItemRequest,
+    payload: IngestItem,
     items: ItemRepository = Depends(get_items_repo),
 ) -> IngestItemResponse:
     item, created = items.create(
@@ -58,7 +56,7 @@ async def ingest_item(
 
 @router.post("/items/batch", response_model=IngestBatchResponse)
 async def ingest_items_batch(
-    payloads: list[IngestItemRequest],
+    payloads: list[IngestItem],
     items: ItemRepository = Depends(get_items_repo),
 ) -> IngestBatchResponse:
     results: list[IngestItemResponse] = []

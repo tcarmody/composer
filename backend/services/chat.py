@@ -8,7 +8,7 @@ Server-Sent Events for our frontend:
   event: citations   — emitted first, lists the numbered sources
   event: delta       — one per text delta from Claude
   event: done        — stop_reason at the end
-  event: error       — any failure
+  event: error       — any failure, including a refusal
 
 If ANTHROPIC_API_KEY is missing, we emit `error` and stop. If the
 retrieval has no hits, we still send the question to Claude with an
@@ -21,23 +21,20 @@ import json
 import logging
 from typing import AsyncIterator, Literal
 
-import httpx
+from dpcommon.llm import StreamEnd
 
-from ..config import config
 from ..repositories.chunks import ChunksRepository
 from ..repositories.drafts import DraftsRepository
 from ..repositories.items import ItemRepository
 from ..repositories.notes import NotesRepository
 from ..schemas import ChatMessage
-from . import secret_store
+from . import llm
 from .search import hybrid_search
 
 logger = logging.getLogger(__name__)
 
 SourceType = Literal["item", "note", "draft"]
 
-ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-DEFAULT_MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 2048
 STREAM_TIMEOUT = 120.0
 
@@ -66,29 +63,6 @@ def _format_sources(hits: list) -> str:
     return "\n\n".join(lines)
 
 
-async def _parse_anthropic_sse(
-    resp: httpx.Response,
-) -> AsyncIterator[tuple[str, dict]]:
-    event_name: str | None = None
-    async for line in resp.aiter_lines():
-        if not line:
-            event_name = None
-            continue
-        if line.startswith("event:"):
-            event_name = line[len("event:"):].strip()
-        elif line.startswith("data:"):
-            if event_name is None:
-                continue
-            payload = line[len("data:"):].strip()
-            if not payload:
-                continue
-            try:
-                data = json.loads(payload)
-            except json.JSONDecodeError:
-                continue
-            yield event_name, data
-
-
 async def stream_chat(
     *,
     query: str,
@@ -100,17 +74,9 @@ async def stream_chat(
     drafts_repo: DraftsRepository,
     history: list[ChatMessage] | None = None,
 ) -> AsyncIterator[bytes]:
-    api_key = secret_store.get("anthropic")
-    if not api_key:
-        yield _sse(
-            "error",
-            {
-                "message": (
-                    "Anthropic API key is not configured. "
-                    "Set it in Settings → LLM Keys."
-                )
-            },
-        )
+    provider = llm.get_provider()
+    if provider is None:
+        yield _sse("error", {"message": llm.KEY_MISSING_MESSAGE})
         return
 
     hits, vector_used = await hybrid_search(
@@ -157,44 +123,23 @@ async def stream_chat(
             messages.append({"role": m.role, "content": m.content})
     messages.append({"role": "user", "content": user_content})
 
-    payload = {
-        "model": config.LLM_MODEL or DEFAULT_MODEL,
-        "max_tokens": MAX_TOKENS,
-        "system": SYSTEM_PROMPT,
-        "messages": messages,
-        "stream": True,
-    }
-    headers = secret_store.anthropic_headers(api_key)
-
     try:
-        async with httpx.AsyncClient(timeout=STREAM_TIMEOUT) as client:
-            async with client.stream(
-                "POST", ANTHROPIC_URL, headers=headers, json=payload
-            ) as resp:
-                if resp.status_code != 200:
-                    body = await resp.aread()
+        async for item in provider.stream_chat_async(
+            messages,
+            system_prompt=SYSTEM_PROMPT,
+            model=llm.chat_model(),
+            max_tokens=MAX_TOKENS,
+            timeout=STREAM_TIMEOUT,
+        ):
+            if isinstance(item, StreamEnd):
+                if item.stop_reason == "refusal":
                     yield _sse(
                         "error",
-                        {
-                            "message": (
-                                f"Anthropic {resp.status_code}: "
-                                f"{body.decode(errors='replace')[:400]}"
-                            )
-                        },
+                        {"message": f"Claude declined this request (category: {item.refusal_category})."},
                     )
                     return
-                stop_reason: str | None = None
-                async for event_name, data in _parse_anthropic_sse(resp):
-                    if event_name == "content_block_delta":
-                        delta = data.get("delta") or {}
-                        if delta.get("type") == "text_delta":
-                            text = delta.get("text", "")
-                            if text:
-                                yield _sse("delta", {"text": text})
-                    elif event_name == "message_delta":
-                        stop_reason = (data.get("delta") or {}).get("stop_reason") or stop_reason
-                    elif event_name == "message_stop":
-                        break
-                yield _sse("done", {"stop_reason": stop_reason})
-    except httpx.HTTPError as e:
-        yield _sse("error", {"message": f"Network error: {e}"})
+                yield _sse("done", {"stop_reason": item.stop_reason})
+            else:
+                yield _sse("delta", {"text": item})
+    except llm.LLM_ERRORS as e:
+        yield _sse("error", {"message": llm.describe_error(e)})

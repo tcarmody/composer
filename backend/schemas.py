@@ -21,39 +21,8 @@ class HealthResponse(BaseModel):
     commit: str = "unknown"
 
 
-class RelatedLink(BaseModel):
-    url: str
-    title: str | None = None
-    score: float | None = None
-
-
-class IngestItemRequest(BaseModel):
-    """Payload DataPoints sends to promote an article into Composer."""
-
-    source: str = Field(..., description="e.g. 'datapoints', 'manual'")
-    source_ref: str | None = Field(None, description="Opaque ID in the source system")
-    url: str | None = None
-    title: str
-    author: str | None = None
-    published_at: str | None = None
-    content: str | None = None
-    summary: str | None = None
-    key_points: list[str] = Field(default_factory=list)
-    keywords: list[str] = Field(default_factory=list)
-    related_links: list[RelatedLink] = Field(default_factory=list)
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class IngestItemResponse(BaseModel):
-    id: str
-    url: str
-    already_existed: bool
-
-
-class IngestBatchResponse(BaseModel):
-    items: list[IngestItemResponse]
-    created: int
-    skipped: int
+# The ingest models (IngestItem, IngestItemResponse, IngestBatchResponse) are
+# the shared contract in dpcommon.ingest.
 
 
 class SyncEntry(BaseModel):
