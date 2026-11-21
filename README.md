@@ -21,7 +21,7 @@ Open <http://localhost:3001>. The header shows a green dot when the backend is h
 
 ## Mac app
 
-Builds from the command line with SwiftPM — no Xcode app, no xcodegen — using
+Builds from the command line with SwiftPM (no xcodegen) using
 `dpcommon-macapp`, the build tool from the shared
 [dpcommon](https://github.com/tcarmody/datapoints-common) package (DataPoints'
 Mac app uses it too). Its settings for this app are `[tool.dpcommon.macapp]`
@@ -35,7 +35,10 @@ uv run dpcommon-macapp app --universal            # arm64 + x86_64
 uv run dpcommon-macapp app --sign "Apple Development"   # or set CODESIGN_IDENTITY
 ```
 
-Without `--sign`, it signs with a Developer ID identity if you have one, then
+It uses the Command Line Tools unless they lack SwiftUI's macro plugin, which
+since CLT 27.2 ships only with Xcode; then it uses an installed Xcode and says
+so (set `DEVELOPER_DIR` to choose yourself). Without `--sign`, it signs with a
+Developer ID identity if you have one, then
 Apple Development, then ad-hoc. Output lands in
 `app/Composer/builds/Composer.app`. The build bakes the repo path it built
 from into the bundle, so the app finds this clone's `.venv/` and `backend/` on
