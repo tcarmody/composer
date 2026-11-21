@@ -1,8 +1,22 @@
 .PHONY: setup backend web dev test clean app app-run app-test
 
+# Interpreter for the venv. The backend needs 3.10+ (uvicorn>=0.40), but macOS's
+# /usr/bin/python3 is 3.9, so don't trust plain python3. Prefer 3.14 to match
+# the Dockerfile, then any other 3.10+. Homebrew's bin dirs are searched too,
+# since non-login shells (IDEs, GUI launchers) often lack them on PATH. Resolves
+# to an absolute path. Override: make setup PYTHON=/path/to/python3
+PYTHON_CANDIDATES := python3.14 python3.15 python3.13 python3.12 python3.11 python3.10 python3
+PYTHON ?= $(shell PATH="$$PATH:/opt/homebrew/bin:/usr/local/bin"; \
+	for p in $(PYTHON_CANDIDATES); do \
+	path=$$(command -v $$p 2>/dev/null) && \
+	"$$path" -c 'import sys; sys.exit(sys.version_info < (3, 10))' 2>/dev/null && \
+	{ echo "$$path"; break; }; done)
+
 # One-time setup: Python venv + npm install
 setup:
-	python3 -m venv venv
+	@[ -n "$(PYTHON)" ] || { echo "error: no Python 3.10+ found (tried: $(PYTHON_CANDIDATES)). Install one, e.g. 'brew install python@3.14', or pass PYTHON=/path/to/python3." >&2; exit 1; }
+	@echo "Using $(PYTHON) ($$($(PYTHON) --version))"
+	$(PYTHON) -m venv venv
 	./venv/bin/pip install --upgrade pip
 	./venv/bin/pip install -r requirements.txt
 	cd web && npm install
