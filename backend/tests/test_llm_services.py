@@ -302,3 +302,16 @@ async def test_summarizer_request_on_the_wire(monkeypatch):
     assert body["model"] == "claude-haiku-5-5"
     assert len(body["system"]) == 2
     assert all(b["cache_control"] == {"type": "ephemeral"} for b in body["system"])
+
+
+def test_factcheck_final_text_joins_cited_blocks_after_last_tool():
+    from types import SimpleNamespace as B
+
+    content = [
+        B(type="text", text="Searching first."),
+        B(type="server_tool_use"),
+        B(type="web_search_tool_result"),
+        B(type="text", text='{"verdict": "supported", '),
+        B(type="text", text='"explanation": "cited"}'),
+    ]
+    assert factcheck._final_text(content) == '{"verdict": "supported", "explanation": "cited"}'

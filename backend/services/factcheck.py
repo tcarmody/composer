@@ -39,7 +39,9 @@ WEB_SEARCH_TOOL = "web_search_20260209"
 MAX_PAUSE_CONTINUATIONS = 2
 EXTRACT_MAX_TOKENS = 1024
 VERIFY_MAX_TOKENS = 2048
-VERIFY_MAX_SEARCHES = 4
+# web_search_20260209 runs its searches from code Claude writes, so a crashed
+# or timed-out script costs a search too; 4 was often used up by those
+VERIFY_MAX_SEARCHES = 8
 VERIFY_CONCURRENCY = 3
 EXTRACT_TIMEOUT = 60.0
 VERIFY_TIMEOUT = 180.0
@@ -71,6 +73,8 @@ Respond with JSON only — no fences, no commentary:
 
 
 VERIFY_SYSTEM = """You are a careful fact-checker. You will be given ONE claim from a writer's draft and the passage it came from for context. Use the web_search tool to verify the claim against primary or reputable secondary sources.
+
+When you call web_search from code, it returns the results as a JSON string, not a list: parse it with json.loads before indexing. If a search errors or times out, retry it once with a simpler query rather than giving up.
 
 Be conservative: prefer "unverified" over a confident verdict you cannot ground in the search results. If you find that the claim is wrong, suggest a corrected version that the writer could paste in.
 
@@ -345,7 +349,9 @@ async def _ask(
     """
     One Messages call, resumed if a server tool pauses the turn, returning the
     answer text. With web_search, Claude narrates between tool turns, so the
-    answer is the LAST text block; earlier ones are commentary.
+    answer is the text after the last tool block; earlier text is commentary.
+    Citations can split that answer into several text blocks, so they are
+    joined rather than taking only the last one.
     """
     conversation = list(messages)
     try:
@@ -358,10 +364,21 @@ async def _ask(
             conversation = [*conversation, {"role": "assistant", "content": response.content}]
     except llm.LLM_ERRORS as e:
         raise FactCheckError(llm.describe_error(e)) from e
-    text = AnthropicProvider.extract_text(response, last_block_only=True).strip()
+    text = _final_text(response.content)
     if not text:
         raise FactCheckError("Anthropic returned no text.")
     return text
+
+
+def _final_text(content: list) -> str:
+    """The text blocks after the last non-text block, joined."""
+    tail: list[str] = []
+    for block in reversed(content):
+        if getattr(block, "type", None) == "text":
+            tail.append(block.text)
+        elif tail:
+            break
+    return "".join(reversed(tail)).strip()
 
 
 def _parse_json(text: str) -> dict | list:
